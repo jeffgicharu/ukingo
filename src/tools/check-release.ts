@@ -172,6 +172,15 @@ async function main(): Promise<void> {
   await file("/icon.svg", /svg/);
   await file("/share.jpg", /image\/jpeg/);
 
+  // Every photograph the home page offers, at every size and in every format, must be there.
+  const photographs = [
+    ...new Set([...home.matchAll(/\/photos\/[\w-]+\.(?:avif|webp|jpg)\?v=\w+/g)].map((match) => match[0])),
+  ];
+  if (photographs.length === 0) failures.push({ path: "/", reason: "shows no photographs" });
+  for (const photograph of photographs) {
+    await file(photograph, /image\/(avif|webp|jpeg)/);
+  }
+
   // The stylesheet and scripts the home page asks for must be part of the release.
   const assets = [
     ...new Set(

@@ -1,3 +1,4 @@
+import { descriptions } from "@/photos/descriptions";
 import { photos } from "@/photos/manifest";
 
 import { Mark } from "./logo";
@@ -5,7 +6,8 @@ import { Mark } from "./logo";
 /**
  * A photograph, served at the size the screen needs and in the newest format
  * the browser understands. `sizes` says how wide it is drawn at each screen
- * width, so a phone never downloads the laptop's copy.
+ * width, so a phone never downloads the laptop's copy. It is described by its
+ * own line in the list of descriptions, or by `alt` where it has none.
  */
 export function Photo({
   name,
@@ -36,8 +38,9 @@ export function Photo({
     );
   }
 
-  const set = (format: string) =>
-    photo.widths.map((width) => `/photos/${name}-${width}.${format} ${width}w`).join(", ");
+  // The stamp changes when the photograph does, which lets browsers keep each copy for good.
+  const file = (width: number, format: string) => `/photos/${name}-${width}.${format}?v=${photo.stamp}`;
+  const set = (format: string) => photo.widths.map((width) => `${file(width, format)} ${width}w`).join(", ");
   const largest = photo.widths[photo.widths.length - 1];
 
   return (
@@ -45,10 +48,10 @@ export function Photo({
       <source type="image/avif" srcSet={set("avif")} sizes={sizes} />
       <source type="image/webp" srcSet={set("webp")} sizes={sizes} />
       <img
-        src={`/photos/${name}-${largest}.jpg`}
+        src={file(largest, "jpg")}
         srcSet={set("jpg")}
         sizes={sizes}
-        alt={alt}
+        alt={descriptions[name] ?? alt}
         width={photo.width}
         height={photo.height}
         loading={priority ? "eager" : "lazy"}

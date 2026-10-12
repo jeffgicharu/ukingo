@@ -59,12 +59,18 @@ export function CalendarGrid({
   };
   const close = () => dialog.current?.close();
 
-  /** Where a stay sits among the half-day columns of the days shown. */
+  /**
+   * Where a stay sits among the half-day columns of the days shown. Over two
+   * weeks a bar runs from the afternoon of arrival to the morning of leaving.
+   * Over a month the days are too narrow for halves, so a bar covers the
+   * nights slept and nothing more.
+   */
+  const half = tight ? 1 : 2;
   const place = (from: Day, to: Day): CSSProperties => ({
-    gridColumn: `${Math.max(1, daysBetween(first, from) * 2 + 2)} / ${Math.min(count * 2 + 1, daysBetween(first, to) * 2 + 2)}`,
+    gridColumn: `${Math.max(1, daysBetween(first, from) * 2 + half)} / ${Math.min(count * 2 + 1, daysBetween(first, to) * 2 + half)}`,
     gridRow: 1,
   });
-  const shown = (from: Day, to: Day) => to >= first && from < end;
+  const shown = (from: Day, to: Day) => (tight ? to > first : to >= first) && from < end;
 
   const onPointerDown = (event: PointerEvent<HTMLElement>, bar: CalendarBar) => {
     if (bar.move === "none" || event.pointerType !== "mouse" || event.button !== 0) return;
@@ -130,7 +136,8 @@ export function CalendarGrid({
 
   const template = `repeat(${count * 2}, minmax(0, 1fr))`;
   const nameWidth = "8rem";
-  const dayWidth = tight ? "1.85rem" : "2.6rem";
+  // Wide enough that half a day, which is what shows beside a bar, is still easy to tap.
+  const dayWidth = tight ? "1.85rem" : "3rem";
 
   return (
     <>
@@ -187,10 +194,12 @@ export function CalendarGrid({
                   </p>
                   <div className="relative grid h-11" style={{ gridTemplateColumns: template }} data-room-id={row.id}>
                     {days.map((day, dayIndex) => {
+                      // A night somebody has is not somewhere to start a booking. Only free nights can be tapped.
+                      const free = !bars.some((bar) => bar.roomId === row.id && bar.from <= day && day < bar.to);
                       const weekend = weekday(day) === 5 || weekday(day) === 6;
                       const tone = `${dayIndex ? "border-l border-rule" : ""} ${weekend ? "bg-mist-100" : ""} ${day === today ? "bg-ember-100/60" : ""}`;
                       const cell = { gridColumn: `${dayIndex * 2 + 1} / span 2`, gridRow: 1 };
-                      return canMake || canBlock ? (
+                      return free && (canMake || canBlock) ? (
                         <button
                           key={day}
                           type="button"

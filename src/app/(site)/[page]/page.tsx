@@ -18,9 +18,9 @@ import { trail } from "@/server/lodge/structured-data";
 // An address that names no page gets the "not found" page.
 
 /** The photograph that opens a page, where there is one for it. */
-const pictures: Record<string, { name: string; alt: string }> = {
-  about: { name: "lodge-evening", alt: "Ukingo at dusk: lit windows under the cedars, with Mount Kenya behind" },
-  "getting-here": { name: "the-road", alt: "The last stretch of murram road, climbing towards the forest" },
+const pictures: Record<string, string> = {
+  about: "lodge-evening",
+  "getting-here": "the-road",
 };
 
 const labels: Record<string, string> = {
@@ -56,11 +56,11 @@ export default async function ContentPage({ params, searchParams }: PageProps<"/
 
         <div className="wrap grid gap-12 py-14 md:grid-cols-[1fr_18rem] md:gap-16 md:py-20">
           <div>
-            {picture && photos[picture.name] ? (
+            {picture && photos[picture] ? (
               <div className="mb-10 overflow-hidden rounded-2xl">
                 <Photo
-                  name={picture.name}
-                  alt={picture.alt}
+                  name={picture}
+                  alt={found.title}
                   sizes="(min-width: 48rem) 60vw, 100vw"
                   className="aspect-4/3 w-full md:aspect-16/9"
                   priority

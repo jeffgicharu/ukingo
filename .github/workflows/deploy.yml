@@ -161,10 +161,16 @@ jobs:
 
       # From outside, as a visitor arrives. The home page twice, because the
       # second visit is the one that reads back anything the first one kept.
+      # A connection that drops is tried again, since it says nothing about the
+      # release. A page that answers with an error is not.
       - name: Check the pages load
         run: |
           for path in / / /rooms /rooms/forest-cottage /stay /questions /sitemap.xml; do
-            status=$(curl -sS -o /dev/null -w '%{http_code}' "https://ukingo.jeffgicharu.com$path")
+            for attempt in 1 2 3; do
+              status=$(curl -sS -o /dev/null -w '%{http_code}' "https://ukingo.jeffgicharu.com$path") && break
+              status=000
+              sleep 2
+            done
             echo "$status $path"
             [ "$status" = "200" ] || failed=1
           done

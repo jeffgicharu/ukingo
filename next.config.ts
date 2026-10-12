@@ -36,6 +36,17 @@ const nextConfig: NextConfig = {
 
   serverExternalPackages: ["pg", "pg-boss"],
 
+  // Each photograph's address ends in a stamp that changes when the photograph
+  // does, so a browser may keep its copy for a year and never ask again.
+  async headers() {
+    return [
+      {
+        source: "/photos/:file*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+    ];
+  },
+
   experimental: {
     // Pages here wait for their data on purpose (see `instant` in the root
     // layout), so the development overlay only checks pages that ask for it.

@@ -420,7 +420,9 @@ You may ask to see the details we hold about you, to have them corrected, or to 
 
 ## Cookies
 
-The site sets no advertising or tracking cookies. Staff who sign in to the back office receive one cookie that keeps them signed in.`,
+The site sets no advertising or tracking cookies. Staff who sign in to the back office receive one cookie that keeps them signed in.
+
+If the booking form has to be shown to you again with a correction, what you typed is kept in your own browser, in that tab only, so that you do not type it twice. It goes nowhere until you continue, and is gone when you close the tab.`,
   },
   {
     slug: "terms",
