@@ -44,12 +44,12 @@ export function linkCode(booking: Linkable): string {
   return `${booking.reference}.${sign(booking)}`;
 }
 
-/** "/b/UKG-7Q4MXR.kq3…/pay" */
-export function bookingPath(booking: Linkable, page: "" | "/pay" | "/change" | "/cancel" | "/calendar" = ""): string {
+/** "/b/UKG-7Q4MXR.kq3…/pay". `page` is "" or starts with "/". */
+export function bookingPath(booking: Linkable, page = ""): string {
   return `/b/${linkCode(booking)}${page}`;
 }
 
-export function bookingUrl(booking: Linkable, page: Parameters<typeof bookingPath>[1] = ""): string {
+export function bookingUrl(booking: Linkable, page = ""): string {
   return `${env.siteUrl}${bookingPath(booking, page)}`;
 }
 

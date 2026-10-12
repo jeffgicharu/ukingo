@@ -48,6 +48,8 @@ jobs:
 
       - run: pnpm exec next typegen
 
+      - run: pnpm format:check
+
       - run: pnpm lint
 
       - run: pnpm typecheck

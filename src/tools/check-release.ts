@@ -120,7 +120,16 @@ async function main(): Promise<void> {
 
   // Availability and prices, for a stay three weeks from now.
   await page("/stay", { contains: ["When would you like to come?"] });
-  await page(`/stay?in=${day(21)}&out=${day(23)}&adults=2&children=0`, { contains: ["What is free", "KSh"] });
+  // These must pass whether or not any room happens to be free on those nights.
+  await page(`/stay?in=${day(21)}&out=${day(23)}&adults=2&children=0`, { contains: ["What is free"] });
+  if (roomPaths[0]) {
+    const room = roomPaths[0].split("/").pop();
+    await page(`/book?room=${room}&in=${day(21)}&out=${day(23)}&adults=2&children=0`, { contains: ["Book "] });
+  }
+  await page("/book", { contains: ["Let us start again"] });
+  await page("/find-booking", { contains: ["Find my booking"] });
+  // A private link that names no booking gets "not found", like any other missing page.
+  await page("/b/UKG-222222.AAAAAAAAAAAAAAAAAAAAAA", { status: 404 });
   await page(`/stay?in=${day(-3)}&out=${day(-1)}&adults=2`, { contains: ["Those dates cannot be booked"] });
 
   // An address with nothing at it gets the site's own "not found" page.

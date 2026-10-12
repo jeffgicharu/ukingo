@@ -110,7 +110,4 @@ export function quote(
   };
 }
 
-/** A share of an amount, rounded up to the next whole shilling. */
-export function percentOf(cents: number, percent: number): number {
-  return Math.min(cents, Math.ceil((cents * percent) / 100 / 100) * 100);
-}
+export { percentOf } from "@/lib/money";

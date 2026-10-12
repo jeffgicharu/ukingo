@@ -7,6 +7,7 @@
 
 import { PgBoss } from "pg-boss";
 
+import { alert } from "@/server/alerts";
 import { closeDatabase } from "@/server/db";
 import { env } from "@/server/env";
 
@@ -28,17 +29,19 @@ async function start(): Promise<void> {
   for (const job of jobs) {
     await boss.createQueue(job.name);
 
-    if (job.every) {
-      // The schedule is in East Africa Time, like everything else at the lodge.
-      await boss.schedule(job.name, job.every, {}, { tz: "Africa/Nairobi" });
-    }
+    // The schedule is in East Africa Time, like everything else at the lodge.
+    await boss.schedule(job.name, job.every, {}, { tz: "Africa/Nairobi" });
 
     await boss.work(job.name, async () => {
       const started = Date.now();
       try {
         await job.run();
       } catch (error) {
-        console.error(`job ${job.name} failed:`, error);
+        await alert(
+          `job:${job.name}`,
+          `The ${job.name} job failed`,
+          error instanceof Error ? (error.stack ?? error.message) : String(error),
+        );
         throw error;
       } finally {
         const took = Date.now() - started;
