@@ -74,6 +74,7 @@ jobs:
       - run: pnpm build
         env:
           RELEASE: ${{ github.sha }}
+          SITE_URL: https://ukingo.jeffgicharu.com
 
       # Only what the server needs to run: the site's own server with the
       # packages it uses, its scripts and styles, the public files, the
