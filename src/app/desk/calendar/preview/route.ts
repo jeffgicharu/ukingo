@@ -39,12 +39,14 @@ export async function GET(request: Request) {
     was: `${roomName(booking.roomId)}, ${formatStay(booking.stay)}, ${plural(nightsIn(booking.stay), "night")}`,
     becomes: `${preview.roomName}, ${formatStay(stay)}, ${plural(nightsIn(stay), "night")}`,
     price: !preview.datesChange
-      ? "The price stays as it is. The guest is not told."
-      : preview.differenceCents === 0
-        ? `The price is the same: ${formatMoney(preview.totalCents)}. The guest is told of the new dates.`
-        : `The new dates cost ${formatMoney(preview.totalCents)}, which is ${formatMoney(Math.abs(preview.differenceCents))} ${
-            preview.differenceCents > 0 ? "more" : "less"
-          }. The guest is told.`,
+      ? preview.otherKind
+        ? `${preview.roomName} is a different kind of room (${preview.otherKind}). The price stays as it is: change the bill by hand if it should differ. The guest is not told.`
+        : "The price stays as it is. The guest is not told."
+      : `${preview.otherKind ? `At ${preview.otherKind} prices, the` : "The"} new dates cost ${formatMoney(preview.totalCents)}, ${
+          preview.differenceCents === 0
+            ? "the same as now"
+            : `which is ${formatMoney(Math.abs(preview.differenceCents))} ${preview.differenceCents > 0 ? "more" : "less"}`
+        }. The guest is told.`,
     money:
       preview.refundCents > 0
         ? `${formatMoney(preview.refundCents)} would be owed back to the guest.`

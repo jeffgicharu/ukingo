@@ -976,6 +976,38 @@ describe("at the desk", () => {
       expect(await allocationOf(booking.id)).toMatchObject({ roomId: booking.roomId, stay: booking.stay });
     });
 
+    it("prices new dates at the kind of room the guest is moved into", async () => {
+      const booking = await confirmedBooking();
+      const tents = roomTypeBySlug(lodge, "mountain-tent")!;
+      const tent = tents.rooms[0];
+      // The same three nights, as a cottage and as a tent.
+      const asCottage = await previewRelocation(
+        booking,
+        { stay: later, roomId: anotherCottage(booking).id },
+        staffId,
+        monday,
+      );
+      const asTent = await previewRelocation(booking, { stay: later, roomId: tent.id }, staffId, monday);
+      if (!asCottage.ok || !asTent.ok) throw new Error("both moves should be possible");
+      expect(asCottage.otherKind).toBeNull();
+      expect(asTent.otherKind).toBe(tents.name);
+      // Three weekday nights in the low season: 14,500 a night in a cottage, 16,000 in a tent.
+      expect(asCottage.totalCents).toBe(4_350_000);
+      expect(asTent.totalCents).toBe(4_800_000);
+
+      const moved = await relocate(booking.id, { stay: later, roomId: tent.id }, staffId, monday);
+      expect(moved).toMatchObject({ roomId: tent.id, roomTypeId: tents.id, totalCents: asTent.totalCents });
+
+      // The same nights in another kind of room is the lodge's choice, and costs the guest nothing.
+      const sameNights = await previewRelocation(
+        moved,
+        { stay: later, roomId: anotherCottage(booking).id },
+        staffId,
+        monday,
+      );
+      expect(sameNights).toMatchObject({ ok: true, differenceCents: 0, otherKind: "Forest Cottage" });
+    });
+
     it("will not put a party in a room too small for it, or touch a booking being paid for", async () => {
       const family = await confirmedBooking({ roomType: "family-cottage", party: { adults: 2, children: 2 } });
       const cottage = roomTypeBySlug(lodge, "forest-cottage")!.rooms[0];
@@ -990,6 +1022,44 @@ describe("at the desk", () => {
         reason: expect.stringContaining("paying"),
       });
     });
+  });
+
+  it("knows a returning guest by their phone number, or by their email when the number is new", async () => {
+    const first = await makeDeskBooking(request({ ip: null }), staffId, monday);
+
+    const samePhone = await makeDeskBooking(
+      request({
+        stay: { from: "2026-12-01", to: "2026-12-03" },
+        guest: { name: "W. Kamau", phone: guest.phone, email: null },
+        ip: null,
+      }),
+      staffId,
+      monday,
+    );
+    const sameEmail = await makeDeskBooking(
+      request({
+        stay: { from: "2026-12-08", to: "2026-12-10" },
+        guest: { name: "Wanjiru K.", phone: "+254733000111", email: guest.email },
+        ip: null,
+      }),
+      staffId,
+      monday,
+    );
+    const stranger = await makeDeskBooking(
+      request({
+        stay: { from: "2026-12-15", to: "2026-12-17" },
+        guest: { name: "Otieno Odhiambo", phone: "+254722000999", email: "otieno@mailbox.org" },
+        ip: null,
+      }),
+      staffId,
+      monday,
+    );
+
+    expect(samePhone.guestId).toBe(first.guestId);
+    expect(sameEmail.guestId).toBe(first.guestId);
+    expect(stranger.guestId).not.toBe(first.guestId);
+    // Each booking keeps the details it was made with.
+    expect(sameEmail.guestPhone).toBe("+254733000111");
   });
 
   it("lets a guest in the house stay longer, and never moves the day they arrived", async () => {

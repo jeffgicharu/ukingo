@@ -124,3 +124,57 @@ export function StepButton({
     </form>
   );
 }
+
+/** Pills that switch between the views of one screen. */
+export function Tabs({
+  label,
+  items,
+}: {
+  label: string;
+  items: { href: string; label: string; current: boolean; count?: number }[];
+}) {
+  return (
+    <nav aria-label={label} className="flex flex-wrap gap-1.5">
+      {items.map((item) => (
+        <a
+          key={item.href}
+          href={item.href}
+          aria-current={item.current ? "page" : undefined}
+          className={`rounded-full px-3.5 py-1.5 text-sm font-medium ${
+            item.current ? "bg-night-900 text-mist-50" : "bg-white text-ink-soft ring-1 ring-rule hover:text-ink"
+          }`}
+        >
+          {item.label}
+          {item.count ? <span className="tabular ml-1.5 opacity-70">{item.count}</span> : null}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+/** Earlier and later pages of a long list. */
+export function Pager({ page, pages, href }: { page: number; pages: number; href: (page: number) => string }) {
+  if (pages <= 1) return null;
+  const step = "button button-line min-h-9 px-4 py-1.5 text-sm";
+  return (
+    <nav aria-label="Pages" className="mt-4 flex items-center justify-between gap-3 text-sm">
+      {page > 1 ? (
+        <a href={href(page - 1)} className={step}>
+          Earlier
+        </a>
+      ) : (
+        <span />
+      )}
+      <span className="tabular text-ink-faint">
+        Page {page} of {pages}
+      </span>
+      {page < pages ? (
+        <a href={href(page + 1)} className={step}>
+          Later
+        </a>
+      ) : (
+        <span />
+      )}
+    </nav>
+  );
+}

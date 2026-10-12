@@ -163,13 +163,24 @@ export type NewBooking = {
 };
 
 async function findOrCreateGuest(tx: Queryable, guest: GuestDetails, now: Date, sample = false): Promise<number> {
+  // A returning guest is known by their phone number, or failing that by their email address.
   const [known] = await tx
-    .select({ id: schema.guests.id })
+    .select({ id: schema.guests.id, email: schema.guests.email })
     .from(schema.guests)
-    .where(and(eq(schema.guests.phone, guest.phone), eq(schema.guests.sample, sample)))
-    .orderBy(schema.guests.id)
+    .where(
+      and(
+        eq(schema.guests.sample, sample),
+        or(eq(schema.guests.phone, guest.phone), guest.email ? eq(schema.guests.email, guest.email) : undefined),
+      ),
+    )
+    .orderBy(sql`(${schema.guests.phone} = ${guest.phone}) DESC`, schema.guests.id)
     .limit(1);
-  if (known) return known.id;
+  if (known) {
+    if (!known.email && guest.email) {
+      await tx.update(schema.guests).set({ email: guest.email }).where(eq(schema.guests.id, known.id));
+    }
+    return known.id;
+  }
 
   const [created] = await tx
     .insert(schema.guests)
@@ -725,11 +736,14 @@ export async function previewDateChange(
   who: Who,
   now: Date,
   q: Queryable = db(),
+  /** `asRoomTypeId`: staff are putting the booking in another kind of room, and it is priced as that kind. */
+  options: { asRoomTypeId?: number } = {},
 ): Promise<
   | { ok: true; priced: Quote; totalCents: number; differenceCents: number; refundCents: number; roomFree: boolean }
   | { ok: false; reason: string }
 > {
   const today = lodgeDay(now);
+  const roomTypeId = options.asRoomTypeId ?? booking.roomTypeId;
   // A guest already in the house can stay longer or leave sooner. Their arrival is history.
   const staying = who.actor === "staff" && booking.status === "checked_in";
   if (staying) {
@@ -759,14 +773,14 @@ export async function previewDateChange(
   if (problem && !(who.actor === "staff" && ["too_late_today", "too_short", "too_long"].includes(problem.code))) {
     return { ok: false, reason: problem.message };
   }
-  const roomType = roomTypeById(lodge, booking.roomTypeId);
+  const roomType = roomTypeById(lodge, roomTypeId);
   if (!roomType) return { ok: false, reason: "That room is no longer offered." };
 
-  const priced = await priceFor(q, lodge, booking, newStay);
+  const priced = await priceFor(q, lodge, booking, newStay, roomTypeId);
   const adjustments = await adjustmentsTotal(q, booking.id);
   const totalCents = priced.totalCents + adjustments;
   const money = await moneyOf(q, booking);
-  const free = await freeRooms(q, booking.roomTypeId, newStay, now, { ignoreBookingId: booking.id });
+  const free = await freeRooms(q, roomTypeId, newStay, now, { ignoreBookingId: booking.id });
 
   return {
     ok: true,
@@ -787,8 +801,14 @@ async function adjustmentsTotal(q: Queryable, bookingId: number): Promise<number
 }
 
 /** Prices a booking's own choices (room, guests, meals, extras) for a stay, at today's rates. */
-async function priceFor(q: Queryable, lodge: Catalogue, booking: Booking, stay: Stay): Promise<Quote> {
-  const roomType = roomTypeById(lodge, booking.roomTypeId);
+async function priceFor(
+  q: Queryable,
+  lodge: Catalogue,
+  booking: Booking,
+  stay: Stay,
+  roomTypeId = booking.roomTypeId,
+): Promise<Quote> {
+  const roomType = roomTypeById(lodge, roomTypeId);
   if (!roomType) throw new BookingError("invalid", "That room is no longer offered.");
   const extras = await q
     .select({ extraId: schema.bookingCharges.extraId })
@@ -817,7 +837,11 @@ export async function changeDates(
 ): Promise<DateChange> {
   const result = await db().transaction(async (tx) => {
     const booking = await lock(tx, bookingId);
-    const preview = await previewDateChange(booking, newStay, who, now, tx);
+    const chosen =
+      options.intoRoomId !== undefined && who.actor === "staff"
+        ? await usableRoom(tx, options.intoRoomId, booking)
+        : null;
+    const preview = await previewDateChange(booking, newStay, who, now, tx, { asRoomTypeId: chosen?.roomTypeId });
     if (!preview.ok) throw new BookingError("not_allowed", preview.reason);
 
     const today = lodgeDay(now);
@@ -828,12 +852,11 @@ export async function changeDates(
     let roomId: number;
     let roomTypeId = booking.roomTypeId;
     let nowIn = "";
-    if (options.intoRoomId !== undefined && who.actor === "staff") {
-      const room = await usableRoom(tx, options.intoRoomId, booking);
-      await placeIn(tx, bookingId, room, newStay);
-      roomId = room.id;
-      roomTypeId = room.roomTypeId;
-      if (room.id !== booking.roomId) nowIn = ` Now in ${room.name}.`;
+    if (chosen) {
+      await placeIn(tx, bookingId, chosen, newStay);
+      roomId = chosen.id;
+      roomTypeId = chosen.roomTypeId;
+      if (chosen.id !== booking.roomId) nowIn = ` Now in ${chosen.name}.`;
     } else {
       roomId = await allocate(
         tx,
@@ -1087,6 +1110,8 @@ export type RelocationPreview =
       roomName: string;
       roomChanges: boolean;
       datesChange: boolean;
+      /** The kind of room it would become, when that is not the kind that was booked. */
+      otherKind: string | null;
       totalCents: number;
       differenceCents: number;
       /** Owed back to the guest if the move makes the stay cost less than they have paid. */
@@ -1125,13 +1150,15 @@ export async function previewRelocation(
     throw error;
   }
   const money = await moneyOf(db(), booking);
-  const moved = { roomName: room.name, roomChanges, datesChange };
+  const [kind] = await db().select().from(schema.roomTypes).where(eq(schema.roomTypes.id, room.roomTypeId));
+  const otherKind = room.roomTypeId === booking.roomTypeId ? null : (kind?.name ?? null);
+  const moved = { roomName: room.name, roomChanges, datesChange, otherKind };
 
   if (!datesChange) {
     if (!(await roomIsFree(db(), room.id, booking.stay, now, { ignoreBookingId: booking.id }))) {
       return { ok: false, reason: `${room.name} is taken for some of those nights.` };
     }
-    // Another room for the same nights is the lodge's choice. The price agreed stays.
+    // Another room for the same nights is the lodge's choice, even one of another kind. The price agreed stays.
     return {
       ok: true,
       ...moved,
@@ -1142,7 +1169,10 @@ export async function previewRelocation(
     };
   }
 
-  const priced = await previewDateChange(booking, to.stay, { actor: "staff", staffId }, now);
+  // New dates are priced afresh, and so at the prices of the kind of room the guest will have.
+  const priced = await previewDateChange(booking, to.stay, { actor: "staff", staffId }, now, db(), {
+    asRoomTypeId: room.roomTypeId,
+  });
   if (!priced.ok) return priced;
   if (!(await roomIsFree(db(), room.id, to.stay, now, { ignoreBookingId: booking.id }))) {
     return { ok: false, reason: `${room.name} is taken for some of those nights.` };
