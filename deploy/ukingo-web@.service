@@ -1,0 +1,31 @@
+[Unit]
+Description=Ukingo website, slot %i
+After=network.target postgresql.service
+ConditionPathExists=/var/www/ukingo.jeffgicharu.com/slots/%i/server.js
+
+[Service]
+User=ukingo
+Group=ukingo
+WorkingDirectory=/var/www/ukingo.jeffgicharu.com/slots/%i
+EnvironmentFile=/var/www/ukingo.jeffgicharu.com/shared/env
+Environment=NODE_ENV=production
+# Local connections only. nginx is the only way in from outside.
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=820%i
+Environment=DATABASE_APP_NAME=ukingo-web-%i
+ExecStart=/var/www/ukingo.jeffgicharu.com/runtime/node/bin/node --max-old-space-size=320 server.js
+Restart=on-failure
+RestartSec=3
+# Requests in hand are finished before the process ends.
+KillSignal=SIGTERM
+TimeoutStopSec=25
+# A leak gets this process restarted. It must never push the server into swap.
+MemoryMax=400M
+MemorySwapMax=0
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

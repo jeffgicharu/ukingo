@@ -1,0 +1,32 @@
+name: Uptime
+
+# Looks at the live site from outside every hour. If it is down or erroring,
+# this run fails, and GitHub emails whoever watches the repository.
+on:
+  schedule:
+    - cron: "41 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    name: Check ukingo.jeffgicharu.com
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Open the pages a guest needs
+        run: |
+          arrive=$(date -u -d '+21 days' +%F)
+          leave=$(date -u -d '+23 days' +%F)
+          for path in /up / /rooms /rooms/forest-cottage "/stay?in=$arrive&out=$leave&adults=2&children=0" /questions; do
+            status=000
+            for attempt in 1 2 3; do
+              status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "https://ukingo.jeffgicharu.com$path" || true)
+              [ "$status" = "200" ] && break
+              sleep 10
+            done
+            echo "$status $path"
+            [ "$status" = "200" ] || failed=1
+          done
+          [ -z "${failed:-}" ]

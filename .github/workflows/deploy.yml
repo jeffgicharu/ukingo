@@ -1,0 +1,168 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# One deploy at a time. A newer push waits for the running deploy to finish.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ukingo
+          POSTGRES_PASSWORD: ukingo
+          POSTGRES_DB: ukingo_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ukingo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL_TEST: postgres://ukingo:ukingo@127.0.0.1:5432/ukingo_test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm exec next typegen
+
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
+  build:
+    name: Build
+    needs: test
+    # The same Ubuntu as the server, so anything compiled here runs there.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+        env:
+          RELEASE: ${{ github.sha }}
+
+      # Only what the server needs to run: the site's own server with the
+      # packages it uses, its scripts and styles, the public files, the
+      # command-line tools and the database migrations.
+      - name: Assemble the release
+        run: |
+          mkdir "$RUNNER_TEMP/release"
+          cp -a .next/standalone/. "$RUNNER_TEMP/release/"
+          mkdir -p "$RUNNER_TEMP/release/.next"
+          cp -a .next/static "$RUNNER_TEMP/release/.next/static"
+          cp -a public "$RUNNER_TEMP/release/public"
+          cp -a dist/tools "$RUNNER_TEMP/release/tools"
+          cp -a migrations "$RUNNER_TEMP/release/migrations"
+          echo "$GITHUB_SHA" > "$RUNNER_TEMP/release/REVISION"
+          rm -f "$RUNNER_TEMP"/release/.env*
+          tar -C "$RUNNER_TEMP/release" -czf release.tar.gz .
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release
+          path: release.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Deploy to ukingo.jeffgicharu.com
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-22.04
+    environment:
+      name: production
+      url: https://ukingo.jeffgicharu.com
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+
+      - run: mkdir release && tar -xzf release.tar.gz -C release
+
+      - name: Configure SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_ACTIVATE_SSH_KEY: ${{ secrets.VPS_ACTIVATE_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/upload_key
+          printf '%s\n' "$VPS_ACTIVATE_SSH_KEY" > ~/.ssh/activate_key
+          chmod 600 ~/.ssh/upload_key ~/.ssh/activate_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # The upload key is limited to rsync into the releases directory,
+      # so the remote path is relative to that directory.
+      - name: Upload the release
+        run: |
+          rsync -az --delete --delay-updates \
+            -e "ssh -i ~/.ssh/upload_key -o IdentitiesOnly=yes" \
+            release/ "$VPS_USER@$VPS_HOST:./$GITHUB_SHA/"
+
+      # The activate key can run one script on the server and nothing else.
+      # It migrates the database, starts the release beside the live one, has
+      # it open its own pages, and only then sends visitors to it. A release
+      # that fails is never put live, and one that stops serving after the
+      # switch is taken back off.
+      - name: Activate the release
+        run: ssh -i ~/.ssh/activate_key -o IdentitiesOnly=yes "$VPS_USER@$VPS_HOST" "$GITHUB_SHA"
+
+      - name: Check the live site serves this release
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsSI https://ukingo.jeffgicharu.com/up | grep -qi "^x-release: $GITHUB_SHA"; then
+              echo "ukingo.jeffgicharu.com is serving ${GITHUB_SHA::7}"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "ukingo.jeffgicharu.com is not serving ${GITHUB_SHA::7}"
+          exit 1
+
+      # From outside, as a visitor arrives. The home page twice, because the
+      # second visit is the one that reads back anything the first one kept.
+      - name: Check the pages load
+        run: |
+          for path in / / /rooms /rooms/forest-cottage /stay /questions /sitemap.xml; do
+            status=$(curl -sS -o /dev/null -w '%{http_code}' "https://ukingo.jeffgicharu.com$path")
+            echo "$status $path"
+            [ "$status" = "200" ] || failed=1
+          done
+          [ -z "${failed:-}" ]
