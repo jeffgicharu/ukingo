@@ -76,6 +76,25 @@ export async function freeRooms(
     .map((entry) => entry.room);
 }
 
+/** Whether one particular room is free for every night of the stay. */
+export async function roomIsFree(
+  q: Queryable,
+  roomId: number,
+  stay: Stay,
+  now: Date,
+  options: { ignoreBookingId?: number } = {},
+): Promise<boolean> {
+  const taken = await q.execute(sql`
+    SELECT 1 FROM allocations a
+    WHERE a.room_id = ${roomId}
+      AND a.stay && ${range(stay)}
+      AND a.booking_id IS DISTINCT FROM ${options.ignoreBookingId ?? -1}
+      AND ${stillHeld(now)}
+    LIMIT 1
+  `);
+  return taken.rows.length === 0;
+}
+
 /** How many rooms of each type are free for the whole stay. */
 export async function freeCountByType(stay: Stay, now: Date, q: Queryable = db()): Promise<Map<number, number>> {
   const result = await q.execute<{ room_type_id: number; free: number }>(sql`

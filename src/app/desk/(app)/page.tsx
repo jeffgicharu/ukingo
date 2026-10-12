@@ -10,7 +10,8 @@ import { board, type BoardBooking } from "@/server/desk/board";
 import { may } from "@/server/staff/permissions";
 import { requireStaff } from "@/server/staff/sessions";
 
-export const metadata: Metadata = { title: "Today" };
+// A layout's title pattern reaches the pages below it, not the page beside it, so this one is written out.
+export const metadata: Metadata = { title: { absolute: "Today · Ukingo front desk" } };
 
 function Guest({ entry }: { entry: BoardBooking }) {
   const { booking } = entry;

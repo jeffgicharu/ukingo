@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { clock } from "@/server/clock";
 import { db, schema } from "@/server/db";
+import { calendarWindow } from "@/server/desk/calendar";
 import { roomTypeBySlug, type Catalogue } from "@/server/lodge/catalogue";
 import { type Mpesa } from "@/server/payments/daraja";
 import {
@@ -35,7 +36,9 @@ import {
   markNoShow,
   moveRoom,
   previewDateChange,
+  previewRelocation,
   releaseLapsedHolds,
+  relocate,
   type Booking,
   type NewBooking,
 } from "./service";
@@ -903,6 +906,127 @@ describe("at the desk", () => {
     const moved = await moveRoom(booking.id, other.id, staffId, monday);
     expect(moved.roomId).toBe(other.id);
     expect((await allocationOf(booking.id)).roomId).toBe(other.id);
+  });
+
+  describe("moved on the calendar", () => {
+    const later = { from: "2026-11-16", to: "2026-11-19" }; // Monday to Thursday: three weekday nights
+    const anotherCottage = (booking: Booking) =>
+      roomTypeBySlug(lodge, "forest-cottage")!.rooms.find((room) => room.id !== booking.roomId)!;
+
+    it("says what a move would do, and does none of it", async () => {
+      const booking = await confirmedBooking();
+      const other = anotherCottage(booking);
+
+      const preview = await previewRelocation(booking, { stay: later, roomId: other.id }, staffId, monday);
+      if (!preview.ok) throw new Error(preview.reason);
+      expect(preview).toMatchObject({ roomName: other.name, roomChanges: true, datesChange: true, refundCents: 0 });
+      // Weekday nights cost less than the weekend they replace.
+      expect(preview.differenceCents).toBeLessThan(0);
+      expect(preview.totalCents).toBe(booking.totalCents + preview.differenceCents);
+      expect(preview.owedCents).toBe(preview.totalCents - 1_425_000);
+
+      const after = await fresh(booking.id);
+      expect(after.stay).toEqual(booking.stay);
+      expect(after.totalCents).toBe(booking.totalCents);
+      expect(await allocationOf(booking.id)).toMatchObject({ roomId: booking.roomId, stay: booking.stay });
+    });
+
+    it("keeps the price when only the room changes", async () => {
+      const booking = await confirmedBooking();
+      const other = anotherCottage(booking);
+      const preview = await previewRelocation(booking, { stay: booking.stay, roomId: other.id }, staffId, monday);
+      expect(preview).toMatchObject({ ok: true, datesChange: false, differenceCents: 0 });
+
+      const moved = await relocate(booking.id, { stay: booking.stay, roomId: other.id }, staffId, monday);
+      expect(moved).toMatchObject({ roomId: other.id, stay: booking.stay, totalCents: booking.totalCents });
+      // Nothing the guest needs to hear about.
+      expect((await messagesFor(booking.id)).filter((message) => message.kind === "booking-changed")).toHaveLength(0);
+    });
+
+    it("moves to the chosen room and dates in one step, at the prices of the new dates", async () => {
+      const booking = await confirmedBooking();
+      const other = anotherCottage(booking);
+
+      const moved = await relocate(booking.id, { stay: later, roomId: other.id }, staffId, monday);
+      expect(moved).toMatchObject({ roomId: other.id, stay: later });
+      expect(moved.totalCents).toBeLessThan(booking.totalCents);
+      expect(await allocationOf(booking.id)).toMatchObject({ roomId: other.id, stay: later });
+      expect((await messagesFor(booking.id)).filter((message) => message.kind === "booking-changed")).toHaveLength(1);
+    });
+
+    it("is refused whole when the chosen room is taken on any of the nights", async () => {
+      const booking = await confirmedBooking();
+      const other = anotherCottage(booking);
+      await blockRoom(other.id, { from: "2026-11-17", to: "2026-11-18" }, "Repairs", staffId, monday);
+
+      expect(await previewRelocation(booking, { stay: later, roomId: other.id }, staffId, monday)).toEqual({
+        ok: false,
+        reason: `${other.name} is taken for some of those nights.`,
+      });
+      await expect(relocate(booking.id, { stay: later, roomId: other.id }, staffId, monday)).rejects.toMatchObject({
+        code: "full",
+      });
+
+      // Neither the dates, the room nor the bill moved.
+      expect(await fresh(booking.id)).toMatchObject({
+        roomId: booking.roomId,
+        stay: booking.stay,
+        totalCents: booking.totalCents,
+      });
+      expect(await allocationOf(booking.id)).toMatchObject({ roomId: booking.roomId, stay: booking.stay });
+    });
+
+    it("will not put a party in a room too small for it, or touch a booking being paid for", async () => {
+      const family = await confirmedBooking({ roomType: "family-cottage", party: { adults: 2, children: 2 } });
+      const cottage = roomTypeBySlug(lodge, "forest-cottage")!.rooms[0];
+      expect(await previewRelocation(family, { stay: family.stay, roomId: cottage.id }, staffId, monday)).toMatchObject(
+        { ok: false, reason: expect.stringContaining("sleeps 2") },
+      );
+
+      const held = await holdBooking(request({ stay: later }), monday);
+      const other = anotherCottage(held);
+      expect(await previewRelocation(held, { stay: held.stay, roomId: other.id }, staffId, monday)).toMatchObject({
+        ok: false,
+        reason: expect.stringContaining("paying"),
+      });
+    });
+  });
+
+  it("lets a guest in the house stay longer, and never moves the day they arrived", async () => {
+    const booking = await confirmedBooking();
+    await checkIn(booking.id, staffId, at("2026-11-13 15:00"));
+    const saturday = at("2026-11-14 10:00");
+    const staff = { actor: "staff" as const, staffId };
+
+    expect(
+      await previewDateChange(await fresh(booking.id), { from: "2026-11-14", to: "2026-11-17" }, staff, saturday),
+    ).toMatchObject({ ok: false, reason: expect.stringContaining("has arrived") });
+
+    const longer = await changeDates(booking.id, { from: "2026-11-13", to: "2026-11-18" }, staff, saturday);
+    expect(longer.booking).toMatchObject({ status: "checked_in", stay: { from: "2026-11-13", to: "2026-11-18" } });
+    expect(longer.booking.totalCents).toBeGreaterThan(booking.totalCents);
+    expect((await allocationOf(booking.id)).stay).toEqual({ from: "2026-11-13", to: "2026-11-18" });
+
+    // Only the desk can do this. The guest's own link cannot.
+    await expect(
+      changeDates(booking.id, { from: "2026-11-13", to: "2026-11-19" }, { actor: "guest" }, saturday),
+    ).rejects.toMatchObject({ code: "not_allowed" });
+  });
+
+  it("draws rooms off sale on the calendar and leaves out holds that have run out", async () => {
+    const held = await holdBooking(request(), monday);
+    const other = roomTypeBySlug(lodge, "forest-cottage")!.rooms.find((room) => room.id !== held.roomId)!;
+    await blockRoom(other.id, { from: "2026-11-14", to: "2026-11-16" }, "Repairs", staffId, monday);
+    const drawn = (window: Awaited<ReturnType<typeof calendarWindow>>) =>
+      window.entries.map((entry) => entry.blockReason ?? entry.reference).sort();
+
+    expect(drawn(await calendarWindow("2026-11-10", 14, monday))).toEqual([held.reference, "Repairs"].sort());
+    // Twenty minutes on, the hold has run out. Nothing has swept it away yet, and it is not drawn.
+    const afterwards = new Date(monday.getTime() + 20 * 60_000);
+    expect(drawn(await calendarWindow("2026-11-10", 14, afterwards))).toEqual(["Repairs"]);
+    // A stay that ends on the first day shown is still drawn, up to that morning.
+    expect(drawn(await calendarWindow("2026-11-16", 14, monday))).toEqual([held.reference, "Repairs"].sort());
+    expect(drawn(await calendarWindow("2026-11-17", 14, monday))).toEqual([]);
   });
 
   it("adds extras and adjustments to the bill and keeps the total in step", async () => {

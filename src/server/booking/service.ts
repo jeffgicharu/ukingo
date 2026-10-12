@@ -7,14 +7,14 @@
 
 import { and, eq, gt, inArray, lte, or, sql } from "drizzle-orm";
 
-import { type Day, type Stay, addDays, lodgeDay, maxDay, nightsIn } from "@/lib/dates";
+import { type Day, type Stay, addDays, isDay, lodgeDay, maxDay, nightsIn } from "@/lib/dates";
 import { formatDay, formatMoney, formatStay, plural } from "@/lib/format";
 import { db, EXCLUSION_VIOLATION, schema, UNIQUE_VIOLATION, violates, type Queryable, type Tx } from "@/server/db";
 import type { Actor, BookingStatus } from "@/server/db/schema";
 import { loadCatalogue, roomTypeById, roomTypeBySlug, type Catalogue } from "@/server/lodge/catalogue";
 import { tell } from "@/server/messages/tell";
 
-import { freeRooms } from "./availability";
+import { freeRooms, roomIsFree } from "./availability";
 import { isOver, moneyOf, type Money } from "./ledger";
 import { newReference } from "./links";
 import { quote, type Party, type Quote } from "./pricing";
@@ -730,7 +730,16 @@ export async function previewDateChange(
   | { ok: false; reason: string }
 > {
   const today = lodgeDay(now);
-  if (booking.status !== "confirmed" && !(who.actor === "staff" && booking.status === "provisional")) {
+  // A guest already in the house can stay longer or leave sooner. Their arrival is history.
+  const staying = who.actor === "staff" && booking.status === "checked_in";
+  if (staying) {
+    if (newStay.from !== booking.stay.from) {
+      return { ok: false, reason: "This guest has arrived. Only the day they leave can change." };
+    }
+    if (!isDay(newStay.to) || newStay.to <= today) {
+      return { ok: false, reason: "Choose a day to leave that is after today, or check the guest out." };
+    }
+  } else if (booking.status !== "confirmed" && !(who.actor === "staff" && booking.status === "provisional")) {
     return { ok: false, reason: "Only a confirmed booking can be moved." };
   }
   if (who.actor === "guest" && !mayChangeDates(booking.terms, today)) {
@@ -746,7 +755,7 @@ export async function previewDateChange(
   }
 
   const lodge = await loadCatalogue(q);
-  const problem = checkDates(lodge, newStay, now);
+  const problem = staying ? null : checkDates(lodge, newStay, now);
   if (problem && !(who.actor === "staff" && ["too_late_today", "too_short", "too_long"].includes(problem.code))) {
     return { ok: false, reason: problem.message };
   }
@@ -803,7 +812,8 @@ export async function changeDates(
   newStay: Stay,
   who: Who,
   now: Date,
-  options: { ip?: string | null } = {},
+  /** `intoRoomId`: staff have chosen the room, on the calendar. It is that room or nothing. */
+  options: { ip?: string | null; intoRoomId?: number } = {},
 ): Promise<DateChange> {
   const result = await db().transaction(async (tx) => {
     const booking = await lock(tx, bookingId);
@@ -815,24 +825,35 @@ export async function changeDates(
 
     // The booking's own row in `allocations` is moved. The database checks
     // the new nights against every other stay in that room as it does so.
-    const roomId = await allocate(
-      tx,
-      booking.roomTypeId,
-      newStay,
-      now,
-      async (room, sp) => {
-        await sp
-          .update(schema.allocations)
-          .set({ roomId: room, stay: newStay })
-          .where(eq(schema.allocations.bookingId, bookingId));
-      },
-      { ignoreBookingId: bookingId, preferRoomId: booking.roomId },
-    ).catch((error) => {
-      if (error instanceof BookingError && error.code === "full") {
-        throw new BookingError("full", "No room of this kind is free for all of those nights.");
-      }
-      throw error;
-    });
+    let roomId: number;
+    let roomTypeId = booking.roomTypeId;
+    let nowIn = "";
+    if (options.intoRoomId !== undefined && who.actor === "staff") {
+      const room = await usableRoom(tx, options.intoRoomId, booking);
+      await placeIn(tx, bookingId, room, newStay);
+      roomId = room.id;
+      roomTypeId = room.roomTypeId;
+      if (room.id !== booking.roomId) nowIn = ` Now in ${room.name}.`;
+    } else {
+      roomId = await allocate(
+        tx,
+        booking.roomTypeId,
+        newStay,
+        now,
+        async (room, sp) => {
+          await sp
+            .update(schema.allocations)
+            .set({ roomId: room, stay: newStay })
+            .where(eq(schema.allocations.bookingId, bookingId));
+        },
+        { ignoreBookingId: bookingId, preferRoomId: booking.roomId },
+      ).catch((error) => {
+        if (error instanceof BookingError && error.code === "full") {
+          throw new BookingError("full", "No room of this kind is free for all of those nights.");
+        }
+        throw error;
+      });
+    }
 
     await writeLines(tx, bookingId, preview.priced, now, who.actor === "staff" ? who.staffId : null);
     const totalCents = await billTotal(tx, bookingId);
@@ -840,7 +861,7 @@ export async function changeDates(
 
     await tx
       .update(schema.bookings)
-      .set({ stay: newStay, roomId, totalCents, terms })
+      .set({ stay: newStay, roomId, roomTypeId, totalCents, terms })
       .where(eq(schema.bookings.id, bookingId));
 
     const money = await moneyOf(tx, { id: bookingId, totalCents, status: booking.status });
@@ -867,7 +888,7 @@ export async function changeDates(
           : difference > 0
             ? `${formatMoney(difference)} more.`
             : `${formatMoney(-difference)} less.`
-      }${refundCents > 0 ? ` ${formatMoney(refundCents)} to refund.` : ""}`,
+      }${refundCents > 0 ? ` ${formatMoney(refundCents)} to refund.` : ""}${nowIn}`,
       now,
       { from: booking.stay, to: newStay, previousTotalCents: booking.totalCents, totalCents, refundCents },
     );
@@ -1021,6 +1042,132 @@ export async function markNoShow(bookingId: number, staffId: number, now: Date):
 }
 
 /** Moves a booking into another room for the same nights. The price does not change. */
+type Room = typeof schema.rooms.$inferSelect;
+
+/** A room this booking's party could be put in: one that is in use and sleeps them all. */
+async function usableRoom(q: Queryable, roomId: number, booking: Booking): Promise<Room> {
+  const [room] = await q
+    .select()
+    .from(schema.rooms)
+    .where(and(eq(schema.rooms.id, roomId), eq(schema.rooms.active, true)));
+  if (!room) throw new BookingError("invalid", "That room is not in use.");
+  const [type] = await q.select().from(schema.roomTypes).where(eq(schema.roomTypes.id, room.roomTypeId));
+  if (booking.adults + booking.children > type.sleeps) {
+    throw new BookingError(
+      "party",
+      `${room.name} sleeps ${type.sleeps}, and this booking is for ${booking.adults + booking.children}.`,
+    );
+  }
+  return room;
+}
+
+/** Puts a booking's nights in one particular room, or refuses if any of them is taken there. */
+async function placeIn(tx: Tx, bookingId: number, room: Room, stay: Stay): Promise<void> {
+  try {
+    // In its own savepoint, so a refusal undoes this step and nothing else.
+    await tx.transaction(async (sp) => {
+      await sp
+        .update(schema.allocations)
+        .set({ roomId: room.id, stay })
+        .where(eq(schema.allocations.bookingId, bookingId));
+    });
+  } catch (error) {
+    if (violates(error, EXCLUSION_VIOLATION, "one_stay_per_room_per_night")) {
+      throw new BookingError("full", `${room.name} is taken for some of those nights.`);
+    }
+    throw error;
+  }
+}
+
+export type Relocation = { stay: Stay; roomId: number };
+
+export type RelocationPreview =
+  | {
+      ok: true;
+      roomName: string;
+      roomChanges: boolean;
+      datesChange: boolean;
+      totalCents: number;
+      differenceCents: number;
+      /** Owed back to the guest if the move makes the stay cost less than they have paid. */
+      refundCents: number;
+      /** Still to pay once the move is made. */
+      owedCents: number;
+    }
+  | { ok: false; reason: string };
+
+/**
+ * What putting a booking in a chosen room on chosen dates would do, without
+ * doing it: whether those nights are free there, and what it does to the bill.
+ * The calendar asks this when a booking is dragged, before anything is saved.
+ */
+export async function previewRelocation(
+  booking: Booking,
+  to: Relocation,
+  staffId: number,
+  now: Date,
+): Promise<RelocationPreview> {
+  const datesChange = to.stay.from !== booking.stay.from || to.stay.to !== booking.stay.to;
+  const roomChanges = to.roomId !== booking.roomId;
+  if (!datesChange && !roomChanges) return { ok: false, reason: "That is where the booking already is." };
+  if (isOver(booking.status) || booking.status === "checked_out") {
+    return { ok: false, reason: "This booking no longer holds a room." };
+  }
+  if (booking.status === "held") {
+    return { ok: false, reason: "The guest is paying for this booking right now. Move it once it is paid." };
+  }
+
+  let room: Room;
+  try {
+    room = await usableRoom(db(), to.roomId, booking);
+  } catch (error) {
+    if (error instanceof BookingError) return { ok: false, reason: error.message };
+    throw error;
+  }
+  const money = await moneyOf(db(), booking);
+  const moved = { roomName: room.name, roomChanges, datesChange };
+
+  if (!datesChange) {
+    if (!(await roomIsFree(db(), room.id, booking.stay, now, { ignoreBookingId: booking.id }))) {
+      return { ok: false, reason: `${room.name} is taken for some of those nights.` };
+    }
+    // Another room for the same nights is the lodge's choice. The price agreed stays.
+    return {
+      ok: true,
+      ...moved,
+      totalCents: booking.totalCents,
+      differenceCents: 0,
+      refundCents: 0,
+      owedCents: money.owedCents,
+    };
+  }
+
+  const priced = await previewDateChange(booking, to.stay, { actor: "staff", staffId }, now);
+  if (!priced.ok) return priced;
+  if (!(await roomIsFree(db(), room.id, to.stay, now, { ignoreBookingId: booking.id }))) {
+    return { ok: false, reason: `${room.name} is taken for some of those nights.` };
+  }
+  return {
+    ok: true,
+    ...moved,
+    totalCents: priced.totalCents,
+    differenceCents: priced.differenceCents,
+    refundCents: priced.refundCents,
+    owedCents: Math.max(0, priced.totalCents - money.heldCents),
+  };
+}
+
+/** Puts a booking in a chosen room on chosen dates. Either the whole move happens or none of it. */
+export async function relocate(bookingId: number, to: Relocation, staffId: number, now: Date): Promise<Booking> {
+  const [current] = await db().select().from(schema.bookings).where(eq(schema.bookings.id, bookingId));
+  if (!current) throw new BookingError("not_found", "That booking could not be found.");
+
+  const datesChange = to.stay.from !== current.stay.from || to.stay.to !== current.stay.to;
+  if (!datesChange) return moveRoom(bookingId, to.roomId, staffId, now);
+  const moved = await changeDates(bookingId, to.stay, { actor: "staff", staffId }, now, { intoRoomId: to.roomId });
+  return moved.booking;
+}
+
 export async function moveRoom(bookingId: number, roomId: number, staffId: number, now: Date): Promise<Booking> {
   const booking = await db().transaction(async (tx) => {
     const current = await lock(tx, bookingId);
@@ -1029,33 +1176,13 @@ export async function moveRoom(bookingId: number, roomId: number, staffId: numbe
     }
     if (current.roomId === roomId) return current;
 
-    const [room] = await tx
-      .select()
-      .from(schema.rooms)
-      .where(and(eq(schema.rooms.id, roomId), eq(schema.rooms.active, true)));
-    if (!room) throw new BookingError("invalid", "That room is not in use.");
-    const [type] = await tx.select().from(schema.roomTypes).where(eq(schema.roomTypes.id, room.roomTypeId));
-    if (current.adults + current.children > type.sleeps) {
-      throw new BookingError(
-        "party",
-        `${room.name} sleeps ${type.sleeps}, and this booking is for ${current.adults + current.children}.`,
-      );
-    }
+    const room = await usableRoom(tx, roomId, current);
     const [from] = await tx
       .select({ name: schema.rooms.name })
       .from(schema.rooms)
       .where(eq(schema.rooms.id, current.roomId));
 
-    try {
-      await tx.transaction(async (sp) => {
-        await sp.update(schema.allocations).set({ roomId }).where(eq(schema.allocations.bookingId, bookingId));
-      });
-    } catch (error) {
-      if (violates(error, EXCLUSION_VIOLATION, "one_stay_per_room_per_night")) {
-        throw new BookingError("full", `${room.name} is taken for some of those nights.`);
-      }
-      throw error;
-    }
+    await placeIn(tx, bookingId, room, current.stay);
 
     await tx
       .update(schema.bookings)
