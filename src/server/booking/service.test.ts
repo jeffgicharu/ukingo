@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { clock } from "@/server/clock";
@@ -96,6 +96,13 @@ const messagesFor = async (id: number, channel: "email" | "sms" = "email") =>
   (
     await db().select().from(schema.messages).where(eq(schema.messages.bookingId, id)).orderBy(schema.messages.id)
   ).filter((message) => message.channel === channel);
+
+/** Takes whatever is still owed on a booking, in cash at the desk. */
+const settle = async (id: number, when: Date) => {
+  const booking = await fresh(id);
+  const { owedCents } = await moneyOf(db(), booking);
+  await recordDeskPayment({ bookingId: id, cents: owedCents, method: "cash", reference: "" }, staffId, when);
+};
 
 /** A booking that has been paid its deposit, made on Monday 12 October for 13 to 16 November. */
 async function confirmedBooking(overrides: Partial<NewBooking> = {}): Promise<Booking> {
@@ -794,7 +801,7 @@ describe("at the desk", () => {
     const [asked] = await messagesFor(booking.id);
     expect(asked.kind).toBe("pay-by");
     expect(asked.body).toContain("pay KSh 14,250 by M-Pesa");
-    expect(asked.body).toContain("Tue 13 Oct 2026, 9:00 am");
+    expect(asked.body).toContain("Tue 13 Oct 2026, 9 am");
 
     expect(await releaseLapsedHolds(db(), at("2026-10-13 08:59"))).toBe(0);
     expect(await releaseLapsedHolds(db(), at("2026-10-13 09:00"))).toBe(1);
@@ -835,6 +842,7 @@ describe("at the desk", () => {
     // A second tap from a stale screen does nothing.
     await expect(checkIn(booking.id, staffId, at("2026-11-13 15:01"))).rejects.toMatchObject({ code: "not_now" });
 
+    await settle(booking.id, at("2026-11-16 09:00"));
     const left = await checkOut(booking.id, staffId, at("2026-11-16 09:30"));
     expect(left.status).toBe("checked_out");
     await expect(checkOut(booking.id, staffId, at("2026-11-16 09:31"))).rejects.toMatchObject({ code: "not_now" });
@@ -842,9 +850,35 @@ describe("at the desk", () => {
     expect((await allocationOf(booking.id)).stay).toEqual(booking.stay);
   });
 
+  it("does not check a guest out with the bill open unless that is chosen", async () => {
+    const booking = await confirmedBooking();
+    await checkIn(booking.id, staffId, at("2026-11-13 15:00"));
+    const owed = (await moneyOf(db(), booking)).owedCents;
+    expect(owed).toBeGreaterThan(0);
+
+    await expect(checkOut(booking.id, staffId, at("2026-11-16 09:30"))).rejects.toMatchObject({
+      code: "not_now",
+      message: expect.stringContaining("still to pay"),
+    });
+    expect((await fresh(booking.id)).status).toBe("checked_in");
+
+    const left = await checkOut(booking.id, staffId, at("2026-11-16 09:35"), { leaveOwing: true });
+    expect(left.status).toBe("checked_out");
+    // What was owed is still owed, and the history says so.
+    expect((await moneyOf(db(), left)).owedCents).toBe(owed);
+    const [last] = await db()
+      .select()
+      .from(schema.bookingEvents)
+      .where(eq(schema.bookingEvents.bookingId, booking.id))
+      .orderBy(desc(schema.bookingEvents.id))
+      .limit(1);
+    expect(last.summary).toContain("was left owing");
+  });
+
   it("puts unused nights back on sale when a guest leaves early", async () => {
     const booking = await confirmedBooking();
     await checkIn(booking.id, staffId, at("2026-11-13 15:00"));
+    await settle(booking.id, at("2026-11-14 07:50"));
     await checkOut(booking.id, staffId, at("2026-11-14 08:00"));
     expect((await allocationOf(booking.id)).stay).toEqual({ from: "2026-11-13", to: "2026-11-14" });
   });

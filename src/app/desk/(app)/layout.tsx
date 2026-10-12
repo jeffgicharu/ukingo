@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 
 import { DeskNav, DeskPulse, type NavGroup } from "@/components/desk/nav";
@@ -61,25 +60,22 @@ export default async function DeskLayout({ children }: LayoutProps<"/desk">) {
       {/* On a laptop the menu is a column that stays put. */}
       <aside className="hidden w-60 shrink-0 flex-col bg-night-900 text-mist-50 lg:flex">
         <div className="sticky top-0 flex h-dvh flex-col gap-6 overflow-y-auto p-4">
-          <Link href="/desk" className="flex items-center gap-2.5 px-2 pt-1">
+          <a href="/desk" className="flex items-center gap-2.5 px-2 pt-1">
             <Mark className="size-7" />
             <span>
               <span className="font-display block text-2xl leading-none">Ukingo</span>
               <span className="label mt-1 block text-night-400">Front desk</span>
             </span>
-          </Link>
+          </a>
           <div className="flex-1">
             <DeskNav groups={menu} />
           </div>
           <div className="space-y-3 border-t border-rule-light px-2 pt-4">
             {account}
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-              <Link
-                href="/desk/account"
-                className="text-night-200 underline-offset-4 hover:text-mist-50 hover:underline"
-              >
+              <a href="/desk/account" className="text-night-200 underline-offset-4 hover:text-mist-50 hover:underline">
                 My account
-              </Link>
+              </a>
               <form action="/desk/sign-out" method="post">
                 <button type="submit" className="text-night-200 underline-offset-4 hover:text-mist-50 hover:underline">
                   Sign out
@@ -93,11 +89,11 @@ export default async function DeskLayout({ children }: LayoutProps<"/desk">) {
       {/* On a phone it folds into a bar across the top. */}
       <header className="sticky top-0 z-40 bg-night-900 text-mist-50 lg:hidden">
         <div className="flex h-14 items-center justify-between gap-3 px-4">
-          <Link href="/desk" className="flex items-center gap-2">
+          <a href="/desk" className="flex items-center gap-2">
             <Mark className="size-6" />
             <span className="font-display text-xl leading-none">Ukingo</span>
             <span className="label text-night-400">Front desk</span>
-          </Link>
+          </a>
           <details className="group relative">
             <summary className="flex h-10 cursor-pointer list-none items-center gap-2 rounded-full border border-rule-light px-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
               Menu
@@ -107,9 +103,9 @@ export default async function DeskLayout({ children }: LayoutProps<"/desk">) {
               <div className="mt-4 space-y-2 border-t border-rule px-3 pt-3">
                 {account}
                 <div className="flex gap-4 text-sm">
-                  <Link href="/desk/account" className="link">
+                  <a href="/desk/account" className="link">
                     My account
-                  </Link>
+                  </a>
                   <form action="/desk/sign-out" method="post">
                     <button type="submit" className="link">
                       Sign out

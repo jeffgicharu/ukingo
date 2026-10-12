@@ -304,12 +304,14 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
                 <dl className="mt-5 space-y-2 border-t border-rule pt-4">
                   <div className="flex justify-between gap-4">
                     <dt className="text-ink-soft">Paid</dt>
-                    <dd className="tabular font-medium">{formatMoney(view.money.paidCents)}</dd>
+                    <dd className="amount font-medium">{formatMoney(view.money.paidCents)}</dd>
                   </div>
                   {view.money.refundOwedCents + view.money.refundSentCents > 0 ? (
                     <div className="flex justify-between gap-4">
-                      <dt className="text-ink-soft">Refunded</dt>
-                      <dd className="tabular font-medium">
+                      <dt className="text-ink-soft">
+                        {view.money.refundOwedCents > 0 ? "Being refunded" : "Refunded"}
+                      </dt>
+                      <dd className="amount font-medium">
                         {formatMoney(view.money.refundOwedCents + view.money.refundSentCents)}
                       </dd>
                     </div>
@@ -320,7 +322,7 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
                         Still to pay
                         {live && booking.terms.balance_due ? `, by ${formatDay(booking.terms.balance_due)}` : ""}
                       </dt>
-                      <dd className="tabular font-semibold">{formatMoney(view.money.owedCents)}</dd>
+                      <dd className="amount font-semibold">{formatMoney(view.money.owedCents)}</dd>
                     </div>
                   ) : null}
                 </dl>

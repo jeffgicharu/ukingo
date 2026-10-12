@@ -158,7 +158,7 @@ export function StayCalendar({ room, first, lastDeparture }: { room?: string; fi
           if (!open && from && from >= first) setMonth(startOfMonth(from));
           setOpen((value) => !value);
         }}
-        className="link inline-flex items-center gap-2 text-[0.95rem]"
+        className="link inline-flex items-center gap-2 text-left text-[0.95rem]"
       >
         <svg
           viewBox="0 0 20 20"
@@ -166,7 +166,7 @@ export function StayCalendar({ room, first, lastDeparture }: { room?: string; fi
           stroke="currentColor"
           strokeWidth="1.5"
           aria-hidden="true"
-          className="size-4"
+          className="size-4 shrink-0"
         >
           <rect x="3" y="4.5" width="14" height="12" rx="2" />
           <path d="M3 8.5h14M7 3v3M13 3v3" strokeLinecap="round" />

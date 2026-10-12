@@ -53,15 +53,17 @@ export default async function CancelPage({ params }: PageProps<"/b/[code]/cancel
               <dl className="mt-5 border-t border-rule">
                 <div className="flex justify-between gap-4 border-b border-rule py-3">
                   <dt className="text-ink-soft">You have paid</dt>
-                  <dd className="tabular font-medium">{formatMoney(view.money.heldCents)}</dd>
+                  <dd className="amount font-medium">{formatMoney(view.money.heldCents)}</dd>
                 </div>
                 <div className="flex justify-between gap-4 border-b border-rule py-3">
                   <dt className="text-ink-soft">We keep</dt>
-                  <dd className="tabular font-medium">{formatMoney(outcome.keptCents)}</dd>
+                  <dd className="amount font-medium">{formatMoney(outcome.keptCents)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-4 py-3">
                   <dt className="font-semibold">We refund</dt>
-                  <dd className="display tabular text-4xl">{formatMoney(outcome.refundCents)}</dd>
+                  <dd className="display tabular shrink-0 text-4xl whitespace-nowrap">
+                    {formatMoney(outcome.refundCents)}
+                  </dd>
                 </div>
               </dl>
               <p className="mt-2 text-sm text-ink-faint">

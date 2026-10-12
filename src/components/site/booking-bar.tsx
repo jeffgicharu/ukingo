@@ -55,8 +55,9 @@ export function BookingBar({
       }
     >
       {room ? <input type="hidden" name="room" value={room} /> : null}
+      {/* On the narrowest phones a date does not fit in half the width, so each date takes a row. */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-[1fr_1fr_0.7fr_0.7fr_auto] lg:items-end">
-        <div>
+        <div className="max-[379px]:col-span-2">
           <label htmlFor={`${idPrefix}-in`} className="field-label">
             Arrive
           </label>
@@ -71,7 +72,7 @@ export function BookingBar({
             className="field tabular"
           />
         </div>
-        <div>
+        <div className="max-[379px]:col-span-2">
           <label htmlFor={`${idPrefix}-out`} className="field-label">
             Leave
           </label>

@@ -25,6 +25,26 @@ export type MessageKind =
   | "paid-too-late"
   | "find-booking";
 
+const KIND_NAMES: Record<MessageKind, string> = {
+  "booking-confirmed": "Booking confirmed",
+  "payment-received": "Payment received",
+  "booking-changed": "Dates changed",
+  "booking-cancelled": "Booking cancelled",
+  "refund-sent": "Refund sent",
+  "pay-by": "Request to pay",
+  "provisional-lapsed": "Booking lapsed",
+  "balance-due-soon": "Balance due soon",
+  "balance-due-today": "Balance due today",
+  "arrival-soon": "Before you arrive",
+  "paid-too-late": "Payment arrived too late",
+  "find-booking": "Link to the booking",
+};
+
+/** What staff call a kind of message in their lists. */
+export function messageName(kind: string): string {
+  return KIND_NAMES[kind as MessageKind] ?? kind.replace(/-/g, " ");
+}
+
 export type MessageContext = {
   lodgeName: string;
   /** The date at the lodge when the message is written. */

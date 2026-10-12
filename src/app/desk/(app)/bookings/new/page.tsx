@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 
 import { DeskPage, Panel } from "@/components/desk/page";
@@ -67,9 +66,9 @@ export default async function NewBookingPage({ searchParams }: PageProps<"/desk/
       title="New booking"
       summary="For a guest on the phone or at the desk. The room is held until the deposit deadline, then let go by itself."
       actions={
-        <Link href="/desk/bookings" className="button button-line min-h-10 px-4 py-2 text-sm">
+        <a href="/desk/bookings" className="button button-line min-h-10 px-4 py-2 text-sm">
           All bookings
-        </Link>
+        </a>
       }
       query={query}
     >
@@ -164,9 +163,9 @@ export default async function NewBookingPage({ searchParams }: PageProps<"/desk/
                     current ? (
                       <span className="label text-ink-faint">Chosen</span>
                     ) : (
-                      <Link href={href} className="button button-line min-h-9 px-4 py-1.5 text-sm">
+                      <a href={href} className="button button-line min-h-9 px-4 py-1.5 text-sm">
                         Choose
-                      </Link>
+                      </a>
                     )
                   ) : null}
                 </li>

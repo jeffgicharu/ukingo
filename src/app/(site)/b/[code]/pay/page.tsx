@@ -5,7 +5,16 @@ import { connection } from "next/server";
 import { Bill } from "@/components/site/booking-parts";
 import { HoldCountdown, PaymentWatcher } from "@/components/site/live";
 import { SiteHeader } from "@/components/site/site-header";
-import { formatDay, formatMoney, formatPhone, formatStay, formatTime, maskPhone, plural } from "@/lib/format";
+import {
+  PHONE_PATTERN,
+  formatDay,
+  formatMoney,
+  formatPhone,
+  formatStay,
+  formatTime,
+  maskPhone,
+  plural,
+} from "@/lib/format";
 import { privatePage } from "@/lib/metadata";
 import { bookingPath } from "@/server/booking/links";
 import { bookingForLink, viewOf } from "@/server/booking/view";
@@ -236,7 +245,7 @@ export default async function PayPage({ params, searchParams }: PageProps<"/b/[c
                         autoComplete="tel"
                         defaultValue={booking.sample ? "" : formatPhone(booking.guestPhone)}
                         placeholder="0712 345 678"
-                        pattern="^\s*(\+?254|0)?[\s\-]?[17](\s?\-?\d){8}\s*$"
+                        pattern={PHONE_PATTERN}
                         title="A Safaricom number, such as 0712 345 678"
                         className="field tabular max-w-xs"
                       />
@@ -276,11 +285,11 @@ export default async function PayPage({ params, searchParams }: PageProps<"/b/[c
                 <dl className="mt-5 space-y-2 border-t border-rule pt-4">
                   <div className="flex justify-between gap-4">
                     <dt className="text-ink-soft">Paid so far</dt>
-                    <dd className="tabular font-medium">{formatMoney(money.paidCents)}</dd>
+                    <dd className="amount font-medium">{formatMoney(money.paidCents)}</dd>
                   </div>
                   <div className="flex justify-between gap-4">
                     <dt className="text-ink-soft">Still to pay</dt>
-                    <dd className="tabular font-semibold">{formatMoney(money.owedCents)}</dd>
+                    <dd className="amount font-semibold">{formatMoney(money.owedCents)}</dd>
                   </div>
                 </dl>
               </div>

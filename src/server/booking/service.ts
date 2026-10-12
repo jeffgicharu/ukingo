@@ -928,13 +928,26 @@ function checkInReason(status: BookingStatus): string {
 }
 
 /** The guest has left. If they leave early, the nights they did not use go back on sale. */
-export async function checkOut(bookingId: number, staffId: number, now: Date): Promise<Booking> {
+export async function checkOut(
+  bookingId: number,
+  staffId: number,
+  now: Date,
+  options: { leaveOwing?: boolean } = {},
+): Promise<Booking> {
   const booking = await db().transaction(async (tx) => {
     const current = await lock(tx, bookingId);
     if (current.status !== "checked_in") {
       throw new BookingError(
         "not_now",
         current.status === "checked_out" ? "This guest has already checked out." : "This guest has not checked in.",
+      );
+    }
+    // Nobody leaves with a bill open by accident. Leaving it open has to be chosen.
+    const { owedCents } = await moneyOf(tx, current);
+    if (owedCents > 0 && !options.leaveOwing) {
+      throw new BookingError(
+        "not_now",
+        `${formatMoney(owedCents)} is still to pay. Take the payment first, or check out and leave it owing.`,
       );
     }
     const today = lodgeDay(now);
@@ -955,7 +968,12 @@ export async function checkOut(bookingId: number, staffId: number, now: Date): P
       bookingId,
       { actor: "staff", staffId },
       "checked-out",
-      early ? "Checked out early. The remaining nights are back on sale." : "Checked out.",
+      [
+        early ? "Checked out early. The remaining nights are back on sale." : "Checked out.",
+        owedCents > 0 ? `${formatMoney(owedCents)} was left owing.` : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
       now,
     );
     const [updated] = await tx.select().from(schema.bookings).where(eq(schema.bookings.id, bookingId));

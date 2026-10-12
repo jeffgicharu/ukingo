@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 
 import { BookingChip } from "@/components/desk/chips";
@@ -17,9 +16,9 @@ function Guest({ entry }: { entry: BoardBooking }) {
   const { booking } = entry;
   return (
     <div className="min-w-0">
-      <Link href={`/desk/bookings/${booking.id}`} className="font-semibold underline-offset-4 hover:underline">
+      <a href={`/desk/bookings/${booking.id}`} className="font-semibold underline-offset-4 hover:underline">
         {booking.guestName}
-      </Link>
+      </a>
       <p className="truncate text-sm text-ink-faint">
         {entry.roomName} · {entry.roomTypeName} · {plural(booking.adults + booking.children, "guest")}
       </p>
@@ -61,9 +60,9 @@ export default async function TodayPage({ searchParams }: PageProps<"/desk">) {
       }
       actions={
         may(staff, "bookings.make") ? (
-          <Link href="/desk/bookings/new" className="button button-ember">
+          <a href="/desk/bookings/new" className="button button-ember">
             New booking
-          </Link>
+          </a>
         ) : null
       }
       query={await searchParams}
@@ -214,18 +213,30 @@ export default async function TodayPage({ searchParams }: PageProps<"/desk">) {
                   className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 sm:px-5"
                 >
                   <div className="min-w-0">
-                    <Link
+                    <a
                       href={`/desk/bookings/${entry.booking.id}`}
                       className="font-semibold underline-offset-4 hover:underline"
                     >
                       {entry.booking.guestName}
-                    </Link>
+                    </a>
                     <p className="text-sm text-ink-faint">
-                      Balance overdue
-                      {entry.booking.terms.balance_due
-                        ? ` since ${formatDay(entry.booking.terms.balance_due, "compact")}`
-                        : ""}{" "}
-                      · arrives {formatDay(entry.booking.stay.from, "compact")}
+                      {entry.booking.status === "checked_out" ? (
+                        <>
+                          Left owing · departed{" "}
+                          {formatDay(
+                            entry.booking.checkedOutAt ? lodgeDay(entry.booking.checkedOutAt) : entry.booking.stay.to,
+                            "compact",
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          Balance overdue
+                          {entry.booking.terms.balance_due
+                            ? ` since ${formatDay(entry.booking.terms.balance_due, "compact")}`
+                            : ""}{" "}
+                          · arrives {formatDay(entry.booking.stay.from, "compact")}
+                        </>
+                      )}
                     </p>
                   </div>
                   <span className="tabular font-semibold whitespace-nowrap text-heath-700">
@@ -239,12 +250,12 @@ export default async function TodayPage({ searchParams }: PageProps<"/desk">) {
                   className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 sm:px-5"
                 >
                   <div className="min-w-0">
-                    <Link
+                    <a
                       href={`/desk/bookings/${entry.booking.id}`}
                       className="font-semibold underline-offset-4 hover:underline"
                     >
                       {entry.booking.guestName}
-                    </Link>
+                    </a>
                     <p className="text-sm text-ink-faint">
                       Deposit not yet paid · {entry.roomName}, {formatDay(entry.booking.stay.from, "compact")}
                     </p>
@@ -261,12 +272,12 @@ export default async function TodayPage({ searchParams }: PageProps<"/desk">) {
                   className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 sm:px-5"
                 >
                   <div className="min-w-0">
-                    <Link
+                    <a
                       href={`/desk/bookings/${refund.bookingId}`}
                       className="font-semibold underline-offset-4 hover:underline"
                     >
                       {refund.guestName}
-                    </Link>
+                    </a>
                     <p className="text-sm text-ink-faint">Refund to send · {refund.reference}</p>
                   </div>
                   <span className="tabular font-semibold whitespace-nowrap">{formatMoney(refund.cents)}</span>
@@ -287,12 +298,12 @@ export default async function TodayPage({ searchParams }: PageProps<"/desk">) {
                   className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 sm:px-5"
                 >
                   <div className="min-w-0">
-                    <Link
+                    <a
                       href={`/desk/bookings/${entry.booking.id}`}
                       className="font-semibold underline-offset-4 hover:underline"
                     >
                       {entry.booking.guestName}
-                    </Link>
+                    </a>
                     <p className="text-sm text-ink-faint">
                       {entry.roomName} · {formatDay(entry.booking.stay.from, "compact")} to{" "}
                       {formatDay(entry.booking.stay.to, "compact")}

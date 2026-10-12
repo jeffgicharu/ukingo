@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
@@ -27,10 +26,9 @@ export function DeskNav({ groups, onDark = true }: { groups: NavGroup[]; onDark?
               const current = isCurrent(pathname, item.href);
               return (
                 <li key={item.href}>
-                  <Link
+                  <a
                     href={item.href}
                     aria-current={current ? "page" : undefined}
-                    onClick={(event) => event.currentTarget.closest("details")?.removeAttribute("open")}
                     className={`block rounded-lg px-3 py-2 text-[0.95rem] font-medium transition-colors ${
                       onDark
                         ? current
@@ -42,7 +40,7 @@ export function DeskNav({ groups, onDark = true }: { groups: NavGroup[]; onDark?
                     }`}
                   >
                     {item.label}
-                  </Link>
+                  </a>
                 </li>
               );
             })}

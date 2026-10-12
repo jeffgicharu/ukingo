@@ -1,7 +1,7 @@
 // What the front desk needs to know right now: who arrives, who leaves, who
 // is in house, how full the lodge is, and what needs someone's attention.
 
-import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
 
 import { type Day, addDays, lodgeDay } from "@/lib/dates";
 import { moneyOfMany, type Money } from "@/server/booking/ledger";
@@ -100,14 +100,21 @@ export async function board(now: Date): Promise<Board> {
     GROUP BY 1 ORDER BY 1
   `);
 
-  // Confirmed bookings whose balance should already have been paid.
+  // Confirmed bookings whose balance should already have been paid, and guests who left with a bill open.
   const pastDue = await db()
     .select()
     .from(b)
     .where(
-      and(
-        eq(b.status, "confirmed"),
-        sql`(${b.terms}->>'balance_due' < ${today} OR ${b.terms}->>'balance_due' IS NULL)`,
+      or(
+        and(
+          eq(b.status, "confirmed"),
+          sql`(${b.terms}->>'balance_due' < ${today} OR ${b.terms}->>'balance_due' IS NULL)`,
+        ),
+        and(
+          eq(b.status, "checked_out"),
+          sql`${b.totalCents} > coalesce((SELECT sum(p.cents) FROM payments p WHERE p.booking_id = ${b.id} AND p.status = 'paid'), 0)
+            - coalesce((SELECT sum(f.cents) FROM refunds f WHERE f.booking_id = ${b.id}), 0)`,
+        ),
       ),
     )
     .orderBy(sql`lower(${b.stay})`);

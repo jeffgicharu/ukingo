@@ -57,7 +57,7 @@ export default async function FindBookingPage({ searchParams }: PageProps<"/find
                   autoComplete="off"
                   spellCheck={false}
                   placeholder="UKG-7Q4MXR"
-                  className="field tabular max-w-xs uppercase placeholder:normal-case"
+                  className="field tabular max-w-md uppercase placeholder:normal-case"
                 />
               </div>
               <div>

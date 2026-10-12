@@ -1,4 +1,4 @@
-import { formatDay, formatMoment, formatMoney, plural } from "@/lib/format";
+import { formatDay, formatMoment, formatMoney, plural, unbroken } from "@/lib/format";
 import type { BookingView } from "@/server/booking/view";
 
 /** The stay in a few labelled lines. */
@@ -14,8 +14,8 @@ export function StayFacts({
   const { booking } = view;
   const rows: [string, string][] = [
     ["Room", view.roomType.name],
-    ["Arrive", `${formatDay(booking.stay.from, "long")}, from ${checkInFrom}`],
-    ["Leave", `${formatDay(booking.stay.to, "long")}, by ${checkOutBy}`],
+    ["Arrive", `${formatDay(booking.stay.from, "long")}, from ${unbroken(checkInFrom)}`],
+    ["Leave", `${formatDay(booking.stay.to, "long")}, by ${unbroken(checkOutBy)}`],
     ["Nights", String(view.nights.length)],
     [
       "Guests",

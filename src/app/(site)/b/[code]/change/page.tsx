@@ -70,10 +70,10 @@ export default async function ChangePage({ params, searchParams }: PageProps<"/b
             <form
               action={bookingPath(booking, "/change")}
               method="get"
-              className="mt-8 rounded-2xl border border-rule bg-white p-5"
+              className="mt-8 rounded-2xl border border-rule bg-white p-4 sm:p-5"
             >
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                <div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end sm:gap-4">
+                <div className="max-[379px]:col-span-2">
                   <label htmlFor="change-in" className="field-label">
                     New arrival
                   </label>
@@ -88,7 +88,7 @@ export default async function ChangePage({ params, searchParams }: PageProps<"/b
                     className="field tabular"
                   />
                 </div>
-                <div>
+                <div className="max-[379px]:col-span-2">
                   <label htmlFor="change-out" className="field-label">
                     New departure
                   </label>
@@ -137,15 +137,15 @@ export default async function ChangePage({ params, searchParams }: PageProps<"/b
                 <dl className="mt-5 border-t border-rule">
                   <div className="flex justify-between gap-4 border-b border-rule py-3">
                     <dt className="text-ink-soft">Your stay costs now</dt>
-                    <dd className="tabular">{formatMoney(booking.totalCents)}</dd>
+                    <dd className="amount">{formatMoney(booking.totalCents)}</dd>
                   </div>
                   <div className="flex justify-between gap-4 border-b border-rule py-3">
                     <dt className="text-ink-soft">The new dates cost</dt>
-                    <dd className="tabular font-medium">{formatMoney(preview.totalCents)}</dd>
+                    <dd className="amount font-medium">{formatMoney(preview.totalCents)}</dd>
                   </div>
                   <div className="flex justify-between gap-4 border-b border-rule py-3">
                     <dt className="text-ink-soft">Difference</dt>
-                    <dd className="tabular font-medium">
+                    <dd className="amount font-medium">
                       {preview.differenceCents === 0
                         ? "None"
                         : preview.differenceCents > 0
@@ -155,12 +155,14 @@ export default async function ChangePage({ params, searchParams }: PageProps<"/b
                   </div>
                   <div className="flex justify-between gap-4 border-b border-rule py-3">
                     <dt className="text-ink-soft">You have paid</dt>
-                    <dd className="tabular">{formatMoney(view.money.heldCents)}</dd>
+                    <dd className="amount">{formatMoney(view.money.heldCents)}</dd>
                   </div>
                   {preview.refundCents > 0 ? (
                     <div className="flex items-baseline justify-between gap-4 py-3">
                       <dt className="font-semibold">We refund</dt>
-                      <dd className="display tabular text-3xl">{formatMoney(preview.refundCents)}</dd>
+                      <dd className="display tabular shrink-0 text-3xl whitespace-nowrap">
+                        {formatMoney(preview.refundCents)}
+                      </dd>
                     </div>
                   ) : (
                     <div className="flex items-baseline justify-between gap-4 py-3">
@@ -172,7 +174,7 @@ export default async function ChangePage({ params, searchParams }: PageProps<"/b
                             : ", straight away"
                           : ""}
                       </dt>
-                      <dd className="display tabular text-3xl">{formatMoney(owedAfter)}</dd>
+                      <dd className="display tabular shrink-0 text-3xl whitespace-nowrap">{formatMoney(owedAfter)}</dd>
                     </div>
                   )}
                 </dl>

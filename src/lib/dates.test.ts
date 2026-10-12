@@ -23,6 +23,7 @@ import {
   maskEmail,
   maskPhone,
   normalisePhone,
+  PHONE_PATTERN,
 } from "./format";
 
 describe("calendar dates", () => {
@@ -90,8 +91,8 @@ describe("how things are written", () => {
   });
 
   it("writes moments in East Africa Time", () => {
-    expect(formatMoment(new Date("2026-11-13T11:05:00Z"))).toBe("Fri 13 Nov 2026, 2:05 pm");
-    expect(formatTime(new Date("2026-11-13T06:00:00Z"))).toBe("9:00 am");
+    expect(formatMoment(new Date("2026-11-13T11:05:00Z"))).toBe("Fri 13 Nov 2026, 2.05 pm");
+    expect(formatTime(new Date("2026-11-13T06:00:00Z"))).toBe("9 am");
   });
 
   it("writes money as shillings", () => {
@@ -110,6 +111,21 @@ describe("how things are written", () => {
     expect(normalisePhone("0212345678")).toBeNull();
     expect(normalisePhone("hello")).toBeNull();
     expect(formatPhone("+254712345678")).toBe("0712 345 678");
+  });
+
+  it("gives form fields a pattern that browsers accept and that agrees with the rule", () => {
+    // Browsers compile a field's pattern this way. One they cannot compile is ignored, and checks nothing.
+    const asBrowsersReadIt = new RegExp("^(?:" + PHONE_PATTERN + ")$", "v");
+    const typed = ["0712 345 678", "+254 712 345 678", "254712345678", "0112-345-678", "712345678", " 0712345678 "];
+    const mistyped = ["12345", "0812345678", "07123456789", "071234567", "hello", ""];
+    for (const number of typed) {
+      expect(asBrowsersReadIt.test(number), number).toBe(true);
+      expect(normalisePhone(number), number).not.toBeNull();
+    }
+    for (const number of mistyped) {
+      expect(asBrowsersReadIt.test(number), number).toBe(false);
+      expect(normalisePhone(number), number).toBeNull();
+    }
   });
 
   it("hides the middle of contact details", () => {

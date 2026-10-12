@@ -105,15 +105,24 @@ const timeFormat = new Intl.DateTimeFormat("en-GB", {
 /** "Fri 13 Nov 2026, 2:05 pm", in East Africa Time. */
 export function formatMoment(at: Date): string {
   // en-GB writes "Fri, 13 Nov 2026, 2:05 pm". Only the first comma goes.
-  return momentFormat
-    .format(at)
-    .replace(",", "")
-    .replace(/\s?(am|pm)$/i, (_, half: string) => ` ${half.toLowerCase()}`);
+  return asWritten(momentFormat.format(at).replace(",", ""));
 }
 
-/** "2:05 pm", in East Africa Time. */
+/** "2.05 pm", in East Africa Time. */
 export function formatTime(at: Date): string {
-  return timeFormat.format(at).replace(/\s?(am|pm)$/i, (_, half: string) => ` ${half.toLowerCase()}`);
+  return asWritten(timeFormat.format(at));
+}
+
+/** The time of day the way the lodge writes it everywhere else: "2 pm", "10.30 am". */
+function asWritten(formatted: string): string {
+  return formatted.replace(/(\d{1,2}):(\d{2})\s?(am|pm)$/i, (_, hour: string, minutes: string, half: string) =>
+    minutes === "00" ? `${hour} ${half.toLowerCase()}` : `${hour}.${minutes} ${half.toLowerCase()}`,
+  );
+}
+
+/** A short phrase that must not be split across two lines on a narrow screen: "2 pm", "KSh 1". */
+export function unbroken(phrase: string): string {
+  return phrase.replace(/ /g, "\u00a0");
 }
 
 /**
@@ -125,6 +134,14 @@ export function normalisePhone(input: string): string | null {
   const match = /^(?:\+?254|0)?([17]\d{8})$/.exec(digits);
   return match ? `+254${match[1]}` : null;
 }
+
+/**
+ * The same rule for a form field's `pattern`, so the browser can point at a
+ * mistyped number before the form is sent. Browsers read patterns strictly: a
+ * hyphen is escaped inside square brackets and nowhere else, or the whole
+ * pattern is ignored without a word.
+ */
+export const PHONE_PATTERN = String.raw`\s*(\+?254|0)?[\s\-]?[17](\s?-?\d){8}\s*`;
 
 /** "+254712345678" as "0712 345 678". */
 export function formatPhone(phone: string): string {

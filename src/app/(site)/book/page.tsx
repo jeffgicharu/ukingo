@@ -4,9 +4,10 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 
 import { BookingChoices } from "@/components/site/booking-choices";
+import { KeepTyped } from "@/components/site/keep-typed";
 import { SiteHeader } from "@/components/site/site-header";
 import { lodgeDay, nightsIn } from "@/lib/dates";
-import { formatDay, formatStay, plural, theRoom } from "@/lib/format";
+import { PHONE_PATTERN, formatDay, formatStay, plural, theRoom } from "@/lib/format";
 import { privatePage } from "@/lib/metadata";
 import { freeCountByType } from "@/server/booking/availability";
 import { extraCharge, mealCharges, quote } from "@/server/booking/pricing";
@@ -146,6 +147,7 @@ export default async function BookPage({ searchParams }: PageProps<"/book">) {
               <input type="hidden" name="children" value={party.children} />
               {/* The same key goes in however many times this form is sent, so it can only make one booking. */}
               <input type="hidden" name="key" value={randomUUID()} />
+              <KeepTyped restore={problem !== undefined} />
 
               <BookingChoices
                 roomName={roomType.name}
@@ -208,7 +210,7 @@ export default async function BookPage({ searchParams }: PageProps<"/book">) {
                         inputMode="tel"
                         autoComplete="tel"
                         placeholder="0712 345 678"
-                        pattern="^\s*(\+?254|0)?[\s\-]?[17](\s?\-?\d){8}\s*$"
+                        pattern={PHONE_PATTERN}
                         title="A Kenyan mobile number, such as 0712 345 678"
                         aria-describedby="book-phone-help"
                         className="field tabular"

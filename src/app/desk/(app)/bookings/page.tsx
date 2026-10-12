@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 
 import { BookingChip } from "@/components/desk/chips";
@@ -51,9 +50,9 @@ export default async function BookingsPage({ searchParams }: PageProps<"/desk/bo
       summary={filters.q ? `${plural(total, "booking")} match “${filters.q}”` : `${plural(total, "booking")}`}
       actions={
         may(staff, "bookings.make") ? (
-          <Link href="/desk/bookings/new" className="button button-ember">
+          <a href="/desk/bookings/new" className="button button-ember">
             New booking
-          </Link>
+          </a>
         ) : null
       }
       query={query}
@@ -61,7 +60,7 @@ export default async function BookingsPage({ searchParams }: PageProps<"/desk/bo
     >
       <nav aria-label="Show" className="flex flex-wrap gap-1.5">
         {(Object.keys(STATE_FILTERS) as StateFilter[]).map((state) => (
-          <Link
+          <a
             key={state}
             href={address({ state, page: null, q: "" })}
             aria-current={!filters.q && filters.state === state ? "page" : undefined}
@@ -72,7 +71,7 @@ export default async function BookingsPage({ searchParams }: PageProps<"/desk/bo
             }`}
           >
             {STATE_FILTERS[state].label}
-          </Link>
+          </a>
         ))}
       </nav>
 
@@ -116,12 +115,12 @@ export default async function BookingsPage({ searchParams }: PageProps<"/desk/bo
             Search
           </button>
           {filters.q || filters.roomType || filters.from || filters.to ? (
-            <Link
+            <a
               href={address({ q: "", type: null, from: null, to: null, page: null })}
               className="button button-line min-h-10 px-4 py-2 text-sm"
             >
               Clear
-            </Link>
+            </a>
           ) : null}
         </div>
       </form>
@@ -159,12 +158,12 @@ export default async function BookingsPage({ searchParams }: PageProps<"/desk/bo
                 {rows.map(({ booking, roomName, roomTypeName, money }) => (
                   <tr key={booking.id} className="hover:bg-mist-50">
                     <td className="px-5 py-3">
-                      <Link
+                      <a
                         href={`/desk/bookings/${booking.id}`}
                         className="font-semibold underline-offset-4 hover:underline"
                       >
                         {nameFor(staff, { name: booking.guestName, sample: booking.sample })}
-                      </Link>
+                      </a>
                       <p className="tabular text-sm text-ink-faint">{booking.reference}</p>
                     </td>
                     <td className="px-3 py-3">
@@ -198,7 +197,7 @@ export default async function BookingsPage({ searchParams }: PageProps<"/desk/bo
             <ul className="divide-y divide-rule md:hidden">
               {rows.map(({ booking, roomName, money }) => (
                 <li key={booking.id}>
-                  <Link href={`/desk/bookings/${booking.id}`} className="block px-4 py-3">
+                  <a href={`/desk/bookings/${booking.id}`} className="block px-4 py-3">
                     <span className="flex items-start justify-between gap-3">
                       <span className="font-semibold">
                         {nameFor(staff, { name: booking.guestName, sample: booking.sample })}
@@ -213,7 +212,7 @@ export default async function BookingsPage({ searchParams }: PageProps<"/desk/bo
                       {booking.reference} ·{" "}
                       {money.owedCents > 0 ? `${formatMoney(money.owedCents)} to pay` : "nothing to pay"}
                     </span>
-                  </Link>
+                  </a>
                 </li>
               ))}
             </ul>
@@ -224,9 +223,9 @@ export default async function BookingsPage({ searchParams }: PageProps<"/desk/bo
       {pages > 1 ? (
         <nav aria-label="Pages" className="mt-4 flex items-center justify-between gap-3 text-sm">
           {filters.page > 1 ? (
-            <Link href={address({ page: filters.page - 1 })} className="button button-line min-h-9 px-4 py-1.5 text-sm">
+            <a href={address({ page: filters.page - 1 })} className="button button-line min-h-9 px-4 py-1.5 text-sm">
               Earlier
-            </Link>
+            </a>
           ) : (
             <span />
           )}
@@ -234,9 +233,9 @@ export default async function BookingsPage({ searchParams }: PageProps<"/desk/bo
             Page {filters.page} of {pages}
           </span>
           {filters.page < pages ? (
-            <Link href={address({ page: filters.page + 1 })} className="button button-line min-h-9 px-4 py-1.5 text-sm">
+            <a href={address({ page: filters.page + 1 })} className="button button-line min-h-9 px-4 py-1.5 text-sm">
               Later
-            </Link>
+            </a>
           ) : (
             <span />
           )}

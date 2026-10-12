@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { BookingChip } from "@/components/desk/chips";
 import { DeskPage, Panel, StepButton } from "@/components/desk/page";
 import { methodName } from "@/components/site/booking-parts";
-import { addDays } from "@/lib/dates";
 import { formatDay, formatMoment, formatMoney, formatStay, formatTime, plural } from "@/lib/format";
 import { isOver } from "@/server/booking/ledger";
 import { refundOnCancel } from "@/server/booking/rules";
@@ -14,7 +12,7 @@ import { viewOf } from "@/server/booking/view";
 import { clock } from "@/server/clock";
 import { bookingById, emailFor, historyOf, nameFor, phoneFor } from "@/server/desk/bookings";
 import { catalogue } from "@/server/lodge/catalogue";
-import { cancellationLines } from "@/server/messages/templates";
+import { cancellationLines, messageName } from "@/server/messages/templates";
 import { failureMessage } from "@/server/payments/daraja";
 import { may } from "@/server/staff/permissions";
 import { requireStaff } from "@/server/staff/sessions";
@@ -38,6 +36,7 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
   const act = `/desk/bookings/${booking.id}/act`;
 
   const over = isOver(booking.status);
+  const inHouse = booking.status === "checked_in";
   const holdsRoom = !over && booking.status !== "checked_out";
   const canTakeMoney = may(staff, "payments.take") && !over && money.owedCents > 0;
   const canChange = may(staff, "bookings.change") && holdsRoom;
@@ -82,9 +81,9 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
           {canCheck && booking.status === "confirmed" && today > booking.stay.from ? (
             <StepButton bookingId={booking.id} action="no_show" back={back} label="Mark as no-show" tone="line" />
           ) : null}
-          <Link href="/desk/bookings" className={`${smallButton} button-line`}>
+          <a href="/desk/bookings" className={`${smallButton} button-line`}>
             All bookings
-          </Link>
+          </a>
         </>
       }
       query={await searchParams}
@@ -194,9 +193,9 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
           <Panel
             title="Guest"
             action={
-              <Link href={`/desk/guests/${booking.guestId}`} className="link text-sm">
+              <a href={`/desk/guests/${booking.guestId}`} className="link text-sm">
                 All their stays
-              </Link>
+              </a>
             }
           >
             <dl className="divide-y divide-rule">
@@ -206,7 +205,7 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
               </div>
               <div className="grid grid-cols-[6.5rem_1fr] gap-3 px-4 py-2.5 sm:px-5">
                 <dt className="label pt-1 text-ink-faint">Phone</dt>
-                <dd className="tabular">{phoneFor(staff, subject)}</dd>
+                <dd className="amount">{phoneFor(staff, subject)}</dd>
               </div>
               <div className="grid grid-cols-[6.5rem_1fr] gap-3 px-4 py-2.5 sm:px-5">
                 <dt className="label pt-1 text-ink-faint">Email</dt>
@@ -372,12 +371,12 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
             <dl className="divide-y divide-rule">
               <div className="flex justify-between gap-4 px-4 py-2.5 sm:px-5">
                 <dt className="text-ink-soft">Paid</dt>
-                <dd className="tabular font-medium">{formatMoney(money.paidCents)}</dd>
+                <dd className="amount font-medium">{formatMoney(money.paidCents)}</dd>
               </div>
               {money.refundOwedCents + money.refundSentCents > 0 ? (
                 <div className="flex justify-between gap-4 px-4 py-2.5 sm:px-5">
                   <dt className="text-ink-soft">Refunded or owed back</dt>
-                  <dd className="tabular font-medium">{formatMoney(money.refundOwedCents + money.refundSentCents)}</dd>
+                  <dd className="amount font-medium">{formatMoney(money.refundOwedCents + money.refundSentCents)}</dd>
                 </div>
               ) : null}
               <div className="flex justify-between gap-4 px-4 py-2.5 sm:px-5">
@@ -387,12 +386,35 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
                     ? `, by ${formatDay(booking.terms.balance_due)}`
                     : ""}
                 </dt>
-                <dd className={`tabular font-semibold ${due.overdue ? "text-heath-700" : ""}`}>
+                <dd className={`amount font-semibold ${due.overdue && !inHouse ? "text-heath-700" : ""}`}>
                   {formatMoney(money.owedCents)}
-                  {due.overdue ? " overdue" : ""}
+                  {/* A guest in the house settles up when they leave. Only a bill nobody is here to pay is late. */}
+                  {money.owedCents > 0 && inHouse
+                    ? ", to settle at check-out"
+                    : due.overdue
+                      ? booking.status === "checked_out"
+                        ? " left owing"
+                        : " overdue"
+                      : ""}
                 </dd>
               </div>
             </dl>
+
+            {canCheck && inHouse && money.owedCents > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule px-4 py-3 sm:px-5">
+                <p className="max-w-xs text-sm text-ink-faint">
+                  Check-out waits for the bill to be settled. If the guest is leaving without paying:
+                </p>
+                <StepButton
+                  bookingId={booking.id}
+                  action="check_out"
+                  back={back}
+                  label={`Check out, leaving ${formatMoney(money.owedCents)} owing`}
+                  tone="line"
+                  fields={{ owing: "leave" }}
+                />
+              </div>
+            ) : null}
 
             {view.payments.length ? (
               <ul className="divide-y divide-rule border-t border-rule">
@@ -542,7 +564,8 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
                   ? `The guest can change dates online until ${formatDay(booking.terms.change_until, "long")}.`
                   : "The guest cannot change dates online."}
               </p>
-              <p>{cancellationLines(booking.terms, addDays(booking.stay.from, -400))}</p>
+              {/* In the guest's own words, from today on. Steps already past are left out. */}
+              <p>{cancellationLines(booking.terms, today)}</p>
             </div>
 
             {canCancel ? (
@@ -592,10 +615,10 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
               <ul className="divide-y divide-rule">
                 {history.messages.map((message) => (
                   <li key={message.id} className="px-4 py-2.5 sm:px-5">
-                    <Link href={`/desk/messages/${message.id}`} className="underline-offset-4 hover:underline">
+                    <a href={`/desk/messages/${message.id}`} className="underline-offset-4 hover:underline">
                       {message.channel === "sms" ? "Text: " : ""}
-                      {message.subject ?? sentence(message.kind)}
-                    </Link>
+                      {message.subject ?? messageName(message.kind)}
+                    </a>
                     <p className="text-sm text-ink-faint">
                       {formatMoment(message.createdAt)} ·{" "}
                       {message.status === "sent"
@@ -619,10 +642,4 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
       </div>
     </DeskPage>
   );
-}
-
-/** "booking-confirmed" as "Booking confirmed". */
-function sentence(kind: string): string {
-  const words = kind.replace(/-/g, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
 }

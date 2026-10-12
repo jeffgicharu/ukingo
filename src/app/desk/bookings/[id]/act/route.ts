@@ -55,8 +55,13 @@ export async function POST(request: Request, { params }: RouteContext<"/desk/boo
       }
       case "check_out": {
         must(staff, "bookings.check_in_out");
-        const booking = await checkOut(bookingId, staff.id, now);
-        return done(`${booking.guestName} is checked out.`);
+        const leaveOwing = field(form, "owing") === "leave";
+        const booking = await checkOut(bookingId, staff.id, now, { leaveOwing });
+        return done(
+          leaveOwing
+            ? `${booking.guestName} is checked out. What they owe stays on the booking and under Payments.`
+            : `${booking.guestName} is checked out.`,
+        );
       }
       case "no_show": {
         must(staff, "bookings.check_in_out");

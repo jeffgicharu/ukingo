@@ -1,4 +1,5 @@
-@import "tailwindcss";
+/* Class names are looked for in the site's own source only, not in whatever else sits beside it. */
+@import "tailwindcss" source("../");
 
 /*
   Ukingo's look: the blue hour on the mountain, with one warm light in it.
@@ -340,5 +341,12 @@
 
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* A sum of money beside its label. The label may wrap. The sum never does. */
+  .amount {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 }

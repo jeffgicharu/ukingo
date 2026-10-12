@@ -49,7 +49,6 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
           </p>
           <p style={{ marginTop: "2rem" }}>
             {/* A plain link on purpose: the page frame has failed, so the browser must load the site afresh. */}
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a
               href="/"
               style={{
