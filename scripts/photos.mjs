@@ -20,9 +20,14 @@ import sharp from "sharp";
 const from = path.resolve(process.argv[2] ?? "generated/masters");
 const to = path.resolve("public/photos");
 const WIDTHS = [480, 800, 1200, 1600];
+const PHONE_WIDTH = 800;
 // How each format is saved. A change here gives every photograph a new stamp.
 const SAVED_AS = {
   avif: { quality: 50, effort: 6 },
+  // The copy phones draw. They show it at well over twice the density of an
+  // ordinary screen, where saving it harder cannot be seen and takes a third
+  // off the data.
+  avifForPhones: { quality: 42, effort: 6 },
   webp: { quality: 72, effort: 5 },
   jpeg: { quality: 74, mozjpeg: true },
 };
@@ -54,7 +59,7 @@ for (const file of originals) {
     const saved = await Promise.all([
       sized
         .clone()
-        .avif(SAVED_AS.avif)
+        .avif(size === PHONE_WIDTH ? SAVED_AS.avifForPhones : SAVED_AS.avif)
         .toFile(path.join(to, `${name}-${size}.avif`)),
       sized
         .clone()
@@ -79,7 +84,7 @@ for (const file of originals) {
   // It goes on the end of the address, so browsers may keep each copy for good.
   const stamp = createHash("sha256")
     .update(await readFile(path.join(from, file)))
-    .update(JSON.stringify([WIDTHS, SAVED_AS]))
+    .update(JSON.stringify([WIDTHS, PHONE_WIDTH, SAVED_AS]))
     .digest("hex")
     .slice(0, 8);
   records.push({ name, width, height, widths, colour, stamp });
