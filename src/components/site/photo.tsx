@@ -4,6 +4,25 @@ import { photos } from "@/photos/manifest";
 import { Mark } from "./logo";
 
 /**
+ * Past about twice the density of an ordinary screen, more pixels in a
+ * photograph cannot be seen, only paid for in data. Phones with three pixels
+ * to the point would otherwise fetch a file over twice the weight. So each
+ * width in `sizes` is offered again at two thirds, for very dense screens only.
+ */
+function sparing(sizes: string): string {
+  return sizes
+    .split(",")
+    .map((part) => part.trim())
+    .flatMap((part) => {
+      const [, when, width] = /^(.*?)\s*(\d+(?:\.\d+)?)vw$/.exec(part) ?? [];
+      if (!width) return [part];
+      const dense = "(min-resolution: 2.5dppx)";
+      return [`${when ? `${when} and ${dense}` : dense} ${Math.round(Number(width) * 0.67)}vw`, part];
+    })
+    .join(", ");
+}
+
+/**
  * A photograph, served at the size the screen needs and in the newest format
  * the browser understands. `sizes` says how wide it is drawn at each screen
  * width, so a phone never downloads the laptop's copy. It is described by its
@@ -42,15 +61,16 @@ export function Photo({
   const file = (width: number, format: string) => `/photos/${name}-${width}.${format}?v=${photo.stamp}`;
   const set = (format: string) => photo.widths.map((width) => `${file(width, format)} ${width}w`).join(", ");
   const largest = photo.widths[photo.widths.length - 1];
+  const fitted = sparing(sizes);
 
   return (
     <picture>
-      <source type="image/avif" srcSet={set("avif")} sizes={sizes} />
-      <source type="image/webp" srcSet={set("webp")} sizes={sizes} />
+      <source type="image/avif" srcSet={set("avif")} sizes={fitted} />
+      <source type="image/webp" srcSet={set("webp")} sizes={fitted} />
       <img
         src={file(largest, "jpg")}
         srcSet={set("jpg")}
-        sizes={sizes}
+        sizes={fitted}
         alt={descriptions[name] ?? alt}
         width={photo.width}
         height={photo.height}
