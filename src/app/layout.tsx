@@ -24,6 +24,11 @@ const instrumentSerif = Instrument_Serif({
 // prices, free rooms and bookings are never served from an earlier render.
 export const instant = false;
 
+// For the same reason nothing is fetched ahead of a tap. Fetching a page in
+// advance for every link on screen would spend a phone's data, and the
+// server's time, on pages most visitors never open.
+export const prefetch = "force-disabled";
+
 const description =
   "A small lodge on the edge of the Mount Kenya forest, 14 km from Nanyuki. Stone cottages, tents facing the peaks, and a farmhouse for eight. Check dates and book with M-Pesa.";
 
