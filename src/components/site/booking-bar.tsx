@@ -1,5 +1,7 @@
 import { addDays, type Day, weekday } from "@/lib/dates";
 
+import { StayCalendar } from "./stay-calendar";
+
 export type BookingBarValues = {
   from?: string;
   to?: string;
@@ -117,6 +119,7 @@ export function BookingBar({
           See what is free
         </button>
       </div>
+      <StayCalendar idPrefix={idPrefix} room={room} first={first} lastDeparture={lastDeparture} />
     </form>
   );
 }
