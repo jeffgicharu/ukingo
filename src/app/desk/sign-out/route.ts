@@ -1,4 +1,4 @@
-import { closeSession, SESSION_COOKIE } from "@/server/staff/sessions";
+import { closeSession, SESSION_COOKIE, sessionCookie } from "@/server/staff/sessions";
 
 export async function POST(request: Request) {
   const token = request.headers
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     status: 303,
     headers: {
       Location: "/desk/sign-in",
-      "Set-Cookie": `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`,
+      "Set-Cookie": sessionCookie(),
       "Cache-Control": "no-store",
     },
   });

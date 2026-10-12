@@ -19,6 +19,20 @@ export const cookieOptions = {
   maxAge: LONGEST_SECONDS,
 };
 
+/** The header that gives a browser its session, or with no value takes it away. */
+export function sessionCookie(value = ""): string {
+  return [
+    `${SESSION_COOKIE}=${value}`,
+    "Path=/",
+    `Max-Age=${value ? cookieOptions.maxAge : 0}`,
+    "HttpOnly",
+    "SameSite=Lax",
+    cookieOptions.secure ? "Secure" : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
+}
+
 /** The member of staff using this page, or null. */
 export async function currentStaff(): Promise<Staff | null> {
   const jar = await cookies();

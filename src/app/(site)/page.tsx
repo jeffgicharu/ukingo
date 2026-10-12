@@ -4,26 +4,29 @@ import { connection } from "next/server";
 import { BookingBar } from "@/components/site/booking-bar";
 import { DawnScene } from "@/components/site/dawn-scene";
 import { Photo } from "@/components/site/photo";
+import { Previewed } from "@/components/site/preview-banner";
 import { SiteHeader } from "@/components/site/site-header";
 import { formatMoney, plural } from "@/lib/format";
 import { bookableWindow } from "@/server/booking/rules";
 import { clock } from "@/server/clock";
 import { catalogue } from "@/server/lodge/catalogue";
 import { siteWords } from "@/server/lodge/content";
+import { isPreview } from "@/server/lodge/preview";
 
 // The title, description and sharing details come from the root layout.
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: PageProps<"/">) {
   await connection();
 
-  const [lodge, words] = await Promise.all([catalogue(), siteWords()]);
+  const preview = await isPreview(await searchParams);
+  const [lodge, words] = await Promise.all([catalogue(), siteWords({ preview })]);
   const window = bookableWindow(lodge.settings, clock.now());
   const maxGuests = Math.max(...lodge.roomTypes.map((type) => type.sleeps));
   const roomCount = lodge.roomTypes.reduce((sum, type) => sum + type.rooms.length, 0);
 
   return (
-    <>
+    <Previewed on={preview} back="/desk/pages">
       <SiteHeader over />
 
       <main id="main" className="flex-1">
@@ -173,6 +176,6 @@ export default async function HomePage() {
           </div>
         </section>
       </main>
-    </>
+    </Previewed>
   );
 }

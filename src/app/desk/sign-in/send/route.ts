@@ -1,19 +1,6 @@
 import { flash } from "@/server/flash";
 import { clientIp, field } from "@/server/http";
-import { cookieOptions, SESSION_COOKIE, signIn } from "@/server/staff/sessions";
-
-function cookie(value: string, maxAge: number): string {
-  return [
-    `${SESSION_COOKIE}=${value}`,
-    "Path=/",
-    `Max-Age=${maxAge}`,
-    "HttpOnly",
-    "SameSite=Lax",
-    cookieOptions.secure ? "Secure" : "",
-  ]
-    .filter(Boolean)
-    .join("; ");
-}
+import { sessionCookie, signIn } from "@/server/staff/sessions";
 
 export async function POST(request: Request) {
   const form = await request.formData();
@@ -39,7 +26,7 @@ export async function POST(request: Request) {
     status: 303,
     headers: {
       Location: "/desk",
-      "Set-Cookie": cookie(result.token, cookieOptions.maxAge),
+      "Set-Cookie": sessionCookie(result.token),
       "Cache-Control": "no-store",
     },
   });

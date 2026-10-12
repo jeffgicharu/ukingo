@@ -137,15 +137,33 @@ async function main(): Promise<void> {
 
   // The back office: its door opens, and nothing behind it is shown to someone who has not signed in.
   await page("/desk/sign-in", { contains: ["Sign in"] });
-  checked++;
-  const desk = await get("/desk");
-  if (desk) {
-    await desk.arrayBuffer();
-    const location = desk.headers.get("location") ?? "";
-    if (desk.status < 300 || desk.status >= 400 || !location.includes("/desk/sign-in")) {
-      failures.push({ path: "/desk", reason: `answered ${desk.status} instead of sending the visitor to sign in` });
+  await page("/desk/forgot", { contains: ["Forgot your password?"] });
+  await page("/desk/reset/not-a-link", { contains: ["has run out"] });
+  for (const path of [
+    "/desk",
+    "/desk/calendar",
+    "/desk/bookings",
+    "/desk/payments",
+    "/desk/guests",
+    "/desk/messages",
+    "/desk/rooms",
+    "/desk/rules",
+    "/desk/pages",
+    "/desk/staff",
+    "/desk/settings",
+    "/desk/account",
+  ]) {
+    checked++;
+    const screen = await get(path);
+    if (!screen) continue;
+    await screen.arrayBuffer();
+    const location = screen.headers.get("location") ?? "";
+    if (screen.status < 300 || screen.status >= 400 || !location.includes("/desk/sign-in")) {
+      failures.push({ path, reason: `answered ${screen.status} instead of sending the visitor to sign in` });
     }
   }
+  // Asking for a preview without being signed in gets the published page and nothing more.
+  await page("/?preview=1", { contains: ["See what is free"] });
 
   await file("/sitemap.xml", /xml/);
   await file("/robots.txt", /text\/plain/);

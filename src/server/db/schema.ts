@@ -421,12 +421,16 @@ export const questions = pgTable("questions", {
   question: text("question").notNull(),
   answer: text("answer").notNull(),
   position: integer("position").notNull().default(0),
+  /** False while staff are still writing it. Guests see only the ones that are shown. */
+  shown: boolean("shown").notNull().default(true),
 });
 
 export const siteText = pgTable("site_text", {
   key: text("key").primaryKey(),
   label: text("label").notNull(),
   value: text("value").notNull(),
+  /** Words being tried out. Null when there is nothing waiting to be published. */
+  draft: text("draft"),
   position: integer("position").notNull().default(0),
   updatedAt: moment("updated_at").notNull().defaultNow(),
 });

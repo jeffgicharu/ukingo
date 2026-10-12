@@ -3,9 +3,11 @@ import { connection } from "next/server";
 
 import { JsonLd } from "@/components/site/json-ld";
 import { PageHeading } from "@/components/site/page-heading";
+import { Previewed } from "@/components/site/preview-banner";
 import { SiteHeader } from "@/components/site/site-header";
 import { describePage } from "@/lib/metadata";
 import { questions } from "@/server/lodge/content";
+import { isPreview } from "@/server/lodge/preview";
 import { questionData, trail } from "@/server/lodge/structured-data";
 
 export const metadata: Metadata = describePage({
@@ -16,13 +18,14 @@ export const metadata: Metadata = describePage({
   shareTitle: "Questions about staying at Ukingo",
 });
 
-export default async function QuestionsPage() {
+export default async function QuestionsPage({ searchParams }: PageProps<"/questions">) {
   await connection();
-  const all = await questions();
+  const preview = await isPreview(await searchParams);
+  const all = await questions({ preview });
   const topics = [...new Set(all.map((entry) => entry.topic))];
 
   return (
-    <>
+    <Previewed on={preview} back="/desk/pages?tab=questions">
       <SiteHeader />
       <main id="main" className="flex-1">
         <PageHeading label="Questions" title="Before you come" summary="What guests ask us most, answered plainly." />
@@ -44,7 +47,14 @@ export default async function QuestionsPage() {
                     .map((entry) => (
                       <details key={entry.id} className="group border-b border-rule">
                         <summary className="flex cursor-pointer list-none items-start justify-between gap-6 py-5 text-lg font-medium [&::-webkit-details-marker]:hidden">
-                          {entry.question}
+                          <span>
+                            {entry.question}
+                            {entry.shown ? null : (
+                              <span className="label ml-3 rounded-full bg-ember-100 px-2 py-0.5 text-ember-800">
+                                Not shown yet
+                              </span>
+                            )}
+                          </span>
                           <span
                             aria-hidden="true"
                             className="relative mt-1.5 size-4 shrink-0 before:absolute before:left-0 before:top-1/2 before:h-px before:w-full before:bg-ink after:absolute after:left-1/2 after:top-0 after:h-full after:w-px after:bg-ink after:transition-transform group-open:after:scale-y-0"
@@ -75,7 +85,7 @@ export default async function QuestionsPage() {
           { name: "Questions", path: "/questions" },
         ])}
       />
-    </>
+    </Previewed>
   );
 }
 

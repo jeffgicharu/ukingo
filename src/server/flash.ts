@@ -26,3 +26,28 @@ export function readFlash(value: string | string[] | undefined): string | null {
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
   return Buffer.from(text, "base64url").toString("utf8");
 }
+
+/**
+ * A small piece of data carried through the browser and back, such as a
+ * change waiting to be confirmed. It is signed, so what comes back is what
+ * this site sent out and nothing else.
+ */
+export function seal(data: unknown): string {
+  const text = Buffer.from(JSON.stringify(data), "utf8").toString("base64url");
+  return `${text}.${createHmac("sha256", env.appSecret).update(`seal:${text}`).digest("base64url")}`;
+}
+
+/** The data, if the value is one this site sealed. Otherwise null. */
+export function unseal<T>(value: string | string[] | undefined | null): T | null {
+  if (typeof value !== "string") return null;
+  const [text, signature] = value.split(".");
+  if (!text || !signature) return null;
+  const expected = Buffer.from(createHmac("sha256", env.appSecret).update(`seal:${text}`).digest("base64url"));
+  const given = Buffer.from(signature);
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
+  try {
+    return JSON.parse(Buffer.from(text, "base64url").toString("utf8")) as T;
+  } catch {
+    return null;
+  }
+}

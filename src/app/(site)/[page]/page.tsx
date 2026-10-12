@@ -4,10 +4,12 @@ import { connection } from "next/server";
 
 import { JsonLd } from "@/components/site/json-ld";
 import { PageHeading } from "@/components/site/page-heading";
+import { Previewed } from "@/components/site/preview-banner";
 import { Prose } from "@/components/site/prose";
 import { SiteHeader } from "@/components/site/site-header";
 import { describePage } from "@/lib/metadata";
 import { page as findPage } from "@/server/lodge/content";
+import { isPreview } from "@/server/lodge/preview";
 import { trail } from "@/server/lodge/structured-data";
 
 // The pages staff write: about, getting here, the booking terms and so on.
@@ -30,14 +32,15 @@ export async function generateMetadata({ params }: PageProps<"/[page]">): Promis
   return describePage({ title: found.title, description: found.summary, path: `/${found.slug}` });
 }
 
-export default async function ContentPage({ params }: PageProps<"/[page]">) {
+export default async function ContentPage({ params, searchParams }: PageProps<"/[page]">) {
   await connection();
   const { page: slug } = await params;
-  const found = await findPage(slug);
+  const preview = await isPreview(await searchParams);
+  const found = await findPage(slug, { preview });
   if (!found) notFound();
 
   return (
-    <>
+    <Previewed on={preview} back={`/desk/pages?tab=pages&page=${found.slug}`}>
       <SiteHeader />
       <main id="main" className="flex-1">
         <PageHeading label={labels[found.slug] ?? "Ukingo"} title={found.title} summary={found.summary} />
@@ -72,6 +75,6 @@ export default async function ContentPage({ params }: PageProps<"/[page]">) {
           { name: found.title, path: `/${found.slug}` },
         ])}
       />
-    </>
+    </Previewed>
   );
 }
