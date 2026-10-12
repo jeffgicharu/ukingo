@@ -1,0 +1,11 @@
+[Unit]
+Description=Ukingo database backup, every night
+
+[Timer]
+# 1.50 am East Africa Time. The server's clock is UTC.
+OnCalendar=*-*-* 22:50:00 UTC
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

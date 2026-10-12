@@ -11,6 +11,7 @@ import { env } from "@/server/env";
 import { chasePayments } from "@/server/payments/service";
 import { rebuildTraining } from "@/server/training/sample";
 
+import { backupFault } from "./backup";
 import { checkBooks } from "./books";
 import { sendReminders } from "./reminders";
 
@@ -28,7 +29,7 @@ const trainingJobs: Job[] = env.training
   ? [
       {
         name: "reset-training",
-        every: "30 3 * * *",
+        every: "45 3 * * *",
         async run() {
           const written = await rebuildTraining(clock.now());
           console.log(`training books rewritten: ${written.bookings} bookings, ${written.guests} guests`);
@@ -84,6 +85,15 @@ export const jobs: Job[] = [
           faults.map((fault) => `${fault.reference}: ${fault.detail}`).join("\n"),
         );
       }
+    },
+  },
+  {
+    // The backup is made by the server itself, at night. This looks at what it left behind.
+    name: "check-backup",
+    every: "10 5 * * *",
+    async run() {
+      const fault = await backupFault(env.backupDir, clock.now());
+      if (fault) await alert("backup", "Last night's backup needs looking at", fault);
     },
   },
   {

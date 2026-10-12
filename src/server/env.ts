@@ -101,6 +101,11 @@ export const env = {
     };
   },
 
+  /** Where the nightly backup leaves its dumps and the note of its last restore check. */
+  get backupDir(): string | undefined {
+    return optional("BACKUP_DIR");
+  },
+
   /** Where trouble is reported. */
   get alertEmail(): string | undefined {
     return optional("ALERT_EMAIL");

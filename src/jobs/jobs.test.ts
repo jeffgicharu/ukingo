@@ -8,6 +8,7 @@ import { cancellationLines } from "@/server/messages/templates";
 import { makeTestPayment } from "@/server/payments/service";
 import { at, freshLodge } from "@/testing/lodge";
 
+import { backupFault } from "./backup";
 import { checkBooks } from "./books";
 import { sendReminders } from "./reminders";
 
@@ -192,5 +193,34 @@ describe("the cancellation terms in words", () => {
       "Cancel by Friday 30 October 2026 and we keep 30% of the total and refund the rest. After that, there is no refund.",
     );
     expect(cancellationLines(terms, "2026-11-01")).toBe("If you cancel, there is no refund.");
+  });
+});
+
+describe("the morning look at last night's backup", () => {
+  const morning = at("2026-10-13 05:10");
+  const withRecord = async (line: string | null) => {
+    const { mkdtemp, writeFile } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const directory = await mkdtemp(join(tmpdir(), "ukingo-backup-test-"));
+    if (line !== null) await writeFile(join(directory, "last-check.txt"), `${line}\n`);
+    return directory;
+  };
+
+  it("says nothing when the backup was made last night and restored", async () => {
+    expect(await backupFault(await withRecord("ok 20261012-2250 bookings=529 bytes=412345"), morning)).toBeNull();
+    // Where no backup folder is named, there is nothing to look at.
+    expect(await backupFault(undefined, morning)).toBeNull();
+  });
+
+  it("says so when the backup failed, went stale or never ran", async () => {
+    expect(await backupFault(await withRecord("failed 20261012-2250 the dump would not restore"), morning)).toMatch(
+      /failed: the dump would not restore/,
+    );
+    expect(await backupFault(await withRecord("ok 20261010-2250 bookings=529 bytes=412345"), morning)).toMatch(
+      /Nothing has been backed up since/,
+    );
+    expect(await backupFault(await withRecord(null), morning)).toMatch(/no record of a backup/);
+    expect(await backupFault(await withRecord("nonsense"), morning)).toMatch(/could not be read/);
   });
 });

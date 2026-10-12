@@ -1,0 +1,11 @@
+[Unit]
+Description=Ukingo database backup, with a restore check
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/ukingo-backup
+Nice=10
+IOSchedulingClass=idle
+MemoryMax=200M
+MemorySwapMax=0

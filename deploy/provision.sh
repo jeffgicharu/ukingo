@@ -91,8 +91,15 @@ echo "== Activation script and services"
 install -o root -g root -m 755 "$HERE/activate.sh" /usr/local/bin/ukingo-activate
 install -o root -g root -m 644 "$HERE/ukingo-web@.service" /etc/systemd/system/ukingo-web@.service
 install -o root -g root -m 644 "$HERE/ukingo-jobs.service" /etc/systemd/system/ukingo-jobs.service
+
+# The nightly backup, which also restores each dump into a scratch database to prove it can be.
+install -o root -g root -m 755 "$HERE/backup.sh" /usr/local/bin/ukingo-backup
+install -o root -g root -m 644 "$HERE/ukingo-backup.service" /etc/systemd/system/ukingo-backup.service
+install -o root -g root -m 644 "$HERE/ukingo-backup.timer" /etc/systemd/system/ukingo-backup.timer
+
 systemctl daemon-reload
 systemctl enable ukingo-jobs.service >/dev/null
+systemctl enable --now ukingo-backup.timer >/dev/null
 
 echo "== nginx"
 # Which slot is live. A release rewrites this one file and nothing else.

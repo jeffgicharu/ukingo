@@ -18,6 +18,8 @@ Restart=on-failure
 RestartSec=3
 # Requests in hand are finished before the process ends.
 KillSignal=SIGTERM
+# Node ends with 143 when it is asked to stop. That is a clean stop, not a failure.
+SuccessExitStatus=143
 TimeoutStopSec=25
 # A leak gets this process restarted. It must never push the server into swap.
 MemoryMax=400M
