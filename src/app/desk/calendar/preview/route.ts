@@ -51,7 +51,7 @@ export async function GET(request: Request) {
       preview.refundCents > 0
         ? `${formatMoney(preview.refundCents)} would be owed back to the guest.`
         : preview.owedCents > 0
-          ? `${formatMoney(preview.owedCents)} would be still to pay.`
+          ? `${formatMoney(preview.owedCents)} would then be owing.`
           : "Nothing more would be owed.",
   });
 }
