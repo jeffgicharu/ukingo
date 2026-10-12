@@ -7,7 +7,9 @@ import { releaseLapsedHolds, touchDesk } from "@/server/booking/service";
 import { clock } from "@/server/clock";
 import { db, schema } from "@/server/db";
 import { deliverQueued } from "@/server/messages/deliver";
+import { env } from "@/server/env";
 import { chasePayments } from "@/server/payments/service";
+import { rebuildTraining } from "@/server/training/sample";
 
 import { checkBooks } from "./books";
 import { sendReminders } from "./reminders";
@@ -21,7 +23,22 @@ export type Job = {
 
 const DAY_MS = 86_400_000;
 
+/** On a lodge kept for training, the books are written afresh each night. */
+const trainingJobs: Job[] = env.training
+  ? [
+      {
+        name: "reset-training",
+        every: "30 3 * * *",
+        async run() {
+          const written = await rebuildTraining(clock.now());
+          console.log(`training books rewritten: ${written.bookings} bookings, ${written.guests} guests`);
+        },
+      },
+    ]
+  : [];
+
 export const jobs: Job[] = [
+  ...trainingJobs,
   {
     // Rooms held for guests who never paid, and for callers whose deposit never came.
     name: "release-holds",

@@ -40,6 +40,14 @@ The site is then at http://127.0.0.1:3000.
 
 `pnpm db:seed` only adds what is missing, so it is safe to run again. `pnpm db:seed --refresh` writes the setup in `src/server/setup/lodge.ts` over what is in the database.
 
+## A lodge for training
+
+Set `TRAINING_MODE=true` and the installation becomes a place to learn the back office. `pnpm db:training` writes its books: six months of past stays and four months of bookings to come, laid out around today's date, with invented guests. The background jobs write them again every night at 3.30 am, and everything anyone did the day before goes.
+
+Two training accounts come with it, a reservations manager and a front desk. They work bookings like anyone else and cannot change prices, rules, pages, settings or staff. With `TRAINING_KEY` set, a link opens one without a password: `/desk/try/reservations?key=…` or `/desk/try/front-desk?key=…`. `/try/booking?key=…` opens a sample booking as its guest sees it.
+
+No message is ever sent for a sample booking, and no M-Pesa prompt is ever sent to an invented guest's number.
+
 ## Tests
 
 ```sh

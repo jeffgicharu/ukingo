@@ -79,6 +79,11 @@ export type PaymentRequest = {
   phone: string;
   who: Who;
   ip?: string | null;
+  /**
+   * Hold this request to the limit on prompts from one visitor, as guests
+   * are. Set for staff accounts that are open to the public for training.
+   */
+  asVisitor?: boolean;
 };
 
 /**
@@ -195,7 +200,7 @@ export async function startMpesaPayment(
       .where(and(eq(schema.payments.method, "mpesa_prompt"), gt(schema.payments.requestedAt, since)));
     if (
       toPhone >= PROMPTS_PER_PHONE ||
-      (request.ip && request.who.actor === "guest" && fromVisitor >= PROMPTS_PER_VISITOR)
+      (request.ip && (request.who.actor === "guest" || request.asVisitor) && fromVisitor >= PROMPTS_PER_VISITOR)
     ) {
       throw new BookingError(
         "too_many_holds",

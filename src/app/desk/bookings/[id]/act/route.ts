@@ -165,6 +165,7 @@ export async function POST(request: Request, { params }: RouteContext<"/desk/boo
             phone: field(form, "phone"),
             who: { actor: "staff", staffId: staff.id },
             ip: clientIp(request.headers),
+            asVisitor: staff.training,
           },
           now,
         );

@@ -9,6 +9,7 @@ import { field, numberField, seeOther } from "@/server/http";
 import { deliverQueued } from "@/server/messages/deliver";
 import { must, NotAllowed } from "@/server/staff/permissions";
 import { staffForRequest } from "@/server/staff/sessions";
+import { trainingMayBook } from "@/server/training/door";
 
 // The desk's "new booking" form lands here.
 export async function POST(request: Request) {
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
       return refuse("That email address is not complete.");
 
     const now = clock.now();
+    await trainingMayBook(staff, now);
     let booking = await makeDeskBooking(
       {
         roomType: type,

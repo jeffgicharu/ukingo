@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { after } from "next/server";
 
-import { isDay } from "@/lib/dates";
+import { isDay, nightsIn } from "@/lib/dates";
 import { formatStay } from "@/lib/format";
 import { BookingError, blockRoom, relocate, unblockRoom } from "@/server/booking/service";
 import { clock } from "@/server/clock";
@@ -11,6 +11,7 @@ import { field, numberField, seeOther } from "@/server/http";
 import { deliverQueued } from "@/server/messages/deliver";
 import { must, NotAllowed } from "@/server/staff/permissions";
 import { staffForRequest } from "@/server/staff/sessions";
+import { trainingMayBlock } from "@/server/training/door";
 
 // What the calendar can change: where a booking sits, and which rooms are off sale.
 export async function POST(request: Request) {
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
         if (!Number.isInteger(roomId) || !isDay(from) || !isDay(to) || from >= to) {
           return refuse("Choose the first night of the block and the morning the room is back.");
         }
+        await trainingMayBlock(staff, nightsIn({ from, to }), now);
         await blockRoom(roomId, { from, to }, field(form, "reason"), staff.id, now);
         return done("The room is off sale for those nights.");
       }

@@ -110,4 +110,14 @@ export const env = {
   get training(): boolean {
     return flag("TRAINING_MODE");
   },
+
+  /**
+   * What a link must carry to sign someone in to a training account. The
+   * links are handed out by whoever runs the training, and work for nobody
+   * who has not been given one.
+   */
+  get trainingKey(): string | undefined {
+    const key = optional("TRAINING_KEY");
+    return key && key.length >= 16 ? key : undefined;
+  },
 };

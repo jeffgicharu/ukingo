@@ -11,6 +11,9 @@ import { alert } from "@/server/alerts";
 import { closeDatabase } from "@/server/db";
 import { env } from "@/server/env";
 
+import { clock } from "@/server/clock";
+import { booksAreEmpty, rebuildTraining } from "@/server/training/sample";
+
 import { jobs } from "./registry";
 
 const boss = new PgBoss({
@@ -51,6 +54,12 @@ async function start(): Promise<void> {
   }
 
   console.log(`Jobs started (release ${env.release}): ${jobs.map((job) => job.name).join(", ")}`);
+
+  // A training lodge with nothing in its books has just been set up. It is given its books straight away.
+  if (env.training && (await booksAreEmpty())) {
+    const written = await rebuildTraining(clock.now());
+    console.log(`training books written: ${written.bookings} bookings, ${written.guests} guests`);
+  }
 }
 
 let stopping = false;
