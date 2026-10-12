@@ -1,7 +1,9 @@
 import { eq } from "drizzle-orm";
 
 import { normalisePhone } from "@/lib/format";
+import { clock } from "@/server/clock";
 import { db, schema } from "@/server/db";
+import { forgetGuest, GuestError } from "@/server/desk/guests";
 import { flash } from "@/server/flash";
 import { field, seeOther } from "@/server/http";
 import { must, NotAllowed } from "@/server/staff/permissions";
@@ -22,6 +24,12 @@ export async function POST(request: Request, { params }: RouteContext<"/desk/gue
   const form = await request.formData();
 
   try {
+    if (field(form, "action") === "forget") {
+      const stays = await forgetGuest(staff, guestId, clock.now());
+      return done(
+        `This guest's details are removed from their profile, ${stays === 1 ? "their booking" : `their ${stays} bookings`} and every message. The payment records are kept, as the law requires.`,
+      );
+    }
     must(staff, "guests.edit");
     const [guest] = await db().select().from(schema.guests).where(eq(schema.guests.id, guestId));
     if (!guest) return seeOther("/desk/guests");
@@ -54,7 +62,7 @@ export async function POST(request: Request, { params }: RouteContext<"/desk/gue
         return refuse("That could not be done.");
     }
   } catch (error) {
-    if (error instanceof NotAllowed) return refuse(error.message);
+    if (error instanceof NotAllowed || error instanceof GuestError) return refuse(error.message);
     throw error;
   }
 }

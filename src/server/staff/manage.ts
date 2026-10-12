@@ -81,6 +81,27 @@ export async function addStaff(
   }
 }
 
+/** Corrects someone's name, or the address they sign in with. */
+export async function changeDetails(by: Staff, staffId: number, input: { name: string; email: string }): Promise<void> {
+  must(by, "staff.manage");
+  const name = input.name.trim().replace(/\s+/g, " ");
+  const email = input.email.trim().toLowerCase();
+  if (name.length < 2 || name.length > 80) throw new StaffError("Enter the person's name.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new StaffError("Enter the email address they sign in with.");
+  try {
+    const changed = await db()
+      .update(schema.staff)
+      .set({ name, email })
+      .where(eq(schema.staff.id, staffId))
+      .returning({ id: schema.staff.id });
+    if (changed.length === 0) throw new StaffError("That person could not be found.");
+  } catch (error) {
+    if (violates(error, UNIQUE_VIOLATION))
+      throw new StaffError("Someone else already signs in with that email address.");
+    throw error;
+  }
+}
+
 export async function changeRole(by: Staff, staffId: number, role: string): Promise<void> {
   must(by, "staff.manage");
   if (!isRole(role)) throw new StaffError("Choose what they do.");
@@ -111,6 +132,8 @@ export async function setActive(by: Staff, staffId: number, active: boolean): Pr
 /** An owner gives someone a new password, for when they are locked out and email will not do. */
 export async function setPassword(by: Staff, staffId: number, password: string): Promise<string> {
   must(by, "staff.manage");
+  // Your own password changes only where the old one is asked for first.
+  if (staffId === by.id) throw new StaffError("Change your own password under My account.");
   checkPassword(password);
   const [member] = await db()
     .update(schema.staff)

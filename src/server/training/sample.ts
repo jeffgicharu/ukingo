@@ -363,7 +363,7 @@ async function writeGuests(
       name,
       // Numbers in a run that is plainly made up. Nothing is ever sent to them.
       phone: `+254700${String(100_000 + key)}`,
-      email: `${name.toLowerCase().replace(/[^a-z]+/g, ".")}.${key}@example.com`,
+      email: `${name.toLowerCase().replace(/[^a-z]+/g, ".")}@example.com`,
     };
   });
 

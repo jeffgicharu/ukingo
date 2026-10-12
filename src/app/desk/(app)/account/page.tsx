@@ -29,7 +29,7 @@ export default async function AccountPage({ searchParams }: PageProps<"/desk/acc
             ))}
           </dl>
           <p className="border-t border-rule px-4 py-3 text-sm text-ink-faint sm:px-5">
-            An owner changes roles and gives out new passwords, under Staff.
+            An owner changes names, addresses and roles, under Staff.
           </p>
         </Panel>
 

@@ -1,10 +1,12 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { holdBooking, makeDeskBooking, type NewBooking } from "@/server/booking/service";
+import { checkBooks } from "@/jobs/books";
+import { checkIn, checkOut, holdBooking, makeDeskBooking, type NewBooking } from "@/server/booking/service";
 import { db, schema } from "@/server/db";
 import { catalogue, forgetCatalogue, roomTypeBySlug, type Catalogue } from "@/server/lodge/catalogue";
 import { forgetContent, page, questions, siteWords } from "@/server/lodge/content";
+import { recordDeskPayment } from "@/server/payments/service";
 import { openSession, staffForToken } from "@/server/staff/auth";
 import {
   addStaff,
@@ -21,6 +23,7 @@ import { verifyPassword } from "@/server/staff/passwords";
 import { NotAllowed, type Staff } from "@/server/staff/permissions";
 import { at, freshLodge } from "@/testing/lodge";
 
+import { forgetGuest } from "./guests";
 import { fieldsOf, rulesOf, setupAction, SetupError, type SetupActionName } from "./setup";
 
 let lodge: Catalogue;
@@ -399,5 +402,44 @@ describe("staff", () => {
     // Used once, it is spent.
     await expect(resetPassword("stale", "yet-another-password", monday)).rejects.toBeInstanceOf(StaffError);
     expect(await resetIsGood("made-up", monday)).toBe(false);
+  });
+});
+
+describe("a guest who asks for their details to be deleted", () => {
+  it("is forgotten once no stay is still to come, and the books stay whole", async () => {
+    const booking = await makeDeskBooking(request(), owner.id, monday);
+    await expect(forgetGuest(manager, booking.guestId, monday)).rejects.toThrow(/still to come/);
+
+    await recordDeskPayment(
+      { bookingId: booking.id, cents: booking.totalCents, method: "cash", reference: "" },
+      owner.id,
+      monday,
+    );
+    await checkIn(booking.id, owner.id, at("2026-11-16 15:00"));
+    await checkOut(booking.id, owner.id, at("2026-11-18 09:00"));
+    const afterwards = at("2026-11-20 10:00");
+
+    // The front desk may not, and nor may a training account, whatever its role.
+    await expect(forgetGuest(desk, booking.guestId, afterwards)).rejects.toBeInstanceOf(NotAllowed);
+    await expect(forgetGuest(trainee, booking.guestId, afterwards)).rejects.toThrow(/Training accounts/);
+
+    expect(await forgetGuest(manager, booking.guestId, afterwards)).toBe(1);
+
+    const [guest] = await db().select().from(schema.guests).where(eq(schema.guests.id, booking.guestId));
+    expect(guest).toMatchObject({ name: "Removed on request", email: null, notes: "" });
+    expect(guest.phone).toBe("");
+    const [kept] = await db().select().from(schema.bookings).where(eq(schema.bookings.id, booking.id));
+    expect(kept).toMatchObject({
+      guestName: "Removed on request",
+      guestEmail: null,
+      requests: "",
+      totalCents: booking.totalCents,
+      status: "checked_out",
+    });
+    expect(await db().select().from(schema.messages).where(eq(schema.messages.bookingId, booking.id))).toEqual([]);
+    // The money is still accounted for, with nobody's name on it.
+    const payments = await db().select().from(schema.payments).where(eq(schema.payments.bookingId, booking.id));
+    expect(payments.map((payment) => payment.cents)).toEqual([booking.totalCents]);
+    expect(await checkBooks()).toEqual([]);
   });
 });

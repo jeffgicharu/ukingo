@@ -67,56 +67,96 @@ export default async function StaffPage({ searchParams }: PageProps<"/desk/staff
                     </div>
                   </div>
 
-                  {canManage && !self ? (
+                  {canManage ? (
                     <details className="mt-3">
                       <summary className="link cursor-pointer text-sm">Change</summary>
-                      <div className="mt-3 grid gap-4 rounded-lg bg-mist-50 p-4 lg:grid-cols-3">
-                        <form action="/desk/staff/act" method="post" className="flex items-end gap-2">
-                          <input type="hidden" name="action" value="role" />
-                          <input type="hidden" name="id" value={person.id} />
-                          <label className="min-w-0 flex-1">
-                            <span className="field-label">Role</span>
-                            <select name="role" defaultValue={person.role} className={field}>
-                              {(Object.keys(ROLE_NAMES) as (keyof typeof ROLE_NAMES)[]).map((role) => (
-                                <option key={role} value={role}>
-                                  {ROLE_NAMES[role]}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <button type="submit" className={`${smallButton} button-line`}>
-                            Save
-                          </button>
-                        </form>
+                      <form
+                        action="/desk/staff/act"
+                        method="post"
+                        className="mt-3 grid gap-3 rounded-lg bg-mist-50 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+                      >
+                        <input type="hidden" name="action" value="details" />
+                        <input type="hidden" name="id" value={person.id} />
+                        <label className="block">
+                          <span className="field-label">Name</span>
+                          <input
+                            name="name"
+                            required
+                            minLength={2}
+                            maxLength={80}
+                            defaultValue={person.name}
+                            className={field}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="field-label">Email they sign in with</span>
+                          <input
+                            name="email"
+                            type="email"
+                            required
+                            maxLength={120}
+                            defaultValue={person.email}
+                            className={field}
+                          />
+                        </label>
+                        <button type="submit" className={`${smallButton} button-line`}>
+                          Save
+                        </button>
+                      </form>
+                      {self ? (
+                        <p className="mt-2 text-sm text-ink-faint">
+                          Your own role and password are not changed here. Change your password under My account.
+                        </p>
+                      ) : null}
+                      {self ? null : (
+                        <div className="mt-3 grid gap-4 rounded-lg bg-mist-50 p-4 lg:grid-cols-3">
+                          <form action="/desk/staff/act" method="post" className="flex items-end gap-2">
+                            <input type="hidden" name="action" value="role" />
+                            <input type="hidden" name="id" value={person.id} />
+                            <label className="min-w-0 flex-1">
+                              <span className="field-label">Role</span>
+                              <select name="role" defaultValue={person.role} className={field}>
+                                {(Object.keys(ROLE_NAMES) as (keyof typeof ROLE_NAMES)[]).map((role) => (
+                                  <option key={role} value={role}>
+                                    {ROLE_NAMES[role]}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <button type="submit" className={`${smallButton} button-line`}>
+                              Save
+                            </button>
+                          </form>
 
-                        <form action="/desk/staff/act" method="post" className="flex items-end gap-2">
-                          <input type="hidden" name="action" value="password" />
-                          <input type="hidden" name="id" value={person.id} />
-                          <label className="min-w-0 flex-1">
-                            <span className="field-label">Give a new password</span>
-                            <input
-                              name="password"
-                              type="password"
-                              required
-                              minLength={MIN_PASSWORD_LENGTH}
-                              autoComplete="new-password"
-                              className={field}
-                            />
-                          </label>
-                          <button type="submit" className={`${smallButton} button-line`}>
-                            Set
-                          </button>
-                        </form>
+                          <form action="/desk/staff/act" method="post" className="flex items-end gap-2">
+                            <input type="hidden" name="action" value="password" />
+                            <input type="hidden" name="id" value={person.id} />
+                            <label className="min-w-0 flex-1">
+                              <span className="field-label">Give a new password</span>
+                              <input
+                                name="password"
+                                type="password"
+                                required
+                                minLength={MIN_PASSWORD_LENGTH}
+                                autoComplete="new-password"
+                                className={field}
+                              />
+                            </label>
+                            <button type="submit" className={`${smallButton} button-line`}>
+                              Set
+                            </button>
+                          </form>
 
-                        <form action="/desk/staff/act" method="post" className="flex items-end">
-                          <input type="hidden" name="action" value="use" />
-                          <input type="hidden" name="id" value={person.id} />
-                          <input type="hidden" name="active" value={person.active ? "0" : "1"} />
-                          <button type="submit" className={`${smallButton} button-line`}>
-                            {person.active ? "Switch this account off" : "Switch this account back on"}
-                          </button>
-                        </form>
-                      </div>
+                          <form action="/desk/staff/act" method="post" className="flex items-end">
+                            <input type="hidden" name="action" value="use" />
+                            <input type="hidden" name="id" value={person.id} />
+                            <input type="hidden" name="active" value={person.active ? "0" : "1"} />
+                            <button type="submit" className={`${smallButton} button-line`}>
+                              {person.active ? "Switch this account off" : "Switch this account back on"}
+                            </button>
+                          </form>
+                        </div>
+                      )}
                     </details>
                   ) : null}
                 </li>

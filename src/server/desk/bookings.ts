@@ -119,6 +119,8 @@ export async function bookingById(id: number): Promise<Booking | null> {
  * are shown in full.
  */
 export function phoneFor(staff: Staff, subject: { phone: string; sample: boolean }): string {
+  // A guest who asked to be forgotten has no number.
+  if (subject.phone === "") return "None kept";
   return staff.training && !subject.sample ? maskPhone(subject.phone) : formatShown(subject.phone);
 }
 

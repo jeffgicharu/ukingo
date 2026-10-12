@@ -26,6 +26,7 @@ export type Ability =
   | "calendar.block"
   | "guests.view"
   | "guests.edit"
+  | "guests.forget" // removing a guest's details at their request
   | "messages.view"
   // Decisions about money beyond the booking's own terms.
   | "refunds.override"
@@ -56,6 +57,7 @@ const MANAGER: Ability[] = [
   "refunds.override",
   "refunds.send",
   "bill.adjust",
+  "guests.forget",
   "rates.edit",
   "rules.edit",
   "content.edit",

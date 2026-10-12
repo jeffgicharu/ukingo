@@ -1,6 +1,6 @@
 import { flash } from "@/server/flash";
 import { field, numberField, seeOther } from "@/server/http";
-import { addStaff, changeRole, setActive, setPassword, StaffError } from "@/server/staff/manage";
+import { addStaff, changeDetails, changeRole, setActive, setPassword, StaffError } from "@/server/staff/manage";
 import { NotAllowed } from "@/server/staff/permissions";
 import { staffForRequest } from "@/server/staff/sessions";
 
@@ -27,6 +27,9 @@ export async function POST(request: Request) {
         });
         return done(`${name} can now sign in. Tell them their first password yourself.`);
       }
+      case "details":
+        await changeDetails(staff, id, { name: field(form, "name"), email: field(form, "email") });
+        return done("Their details are saved.");
       case "role":
         await changeRole(staff, id, field(form, "role"));
         return done("Their role is changed. They will need to sign in again.");

@@ -7,7 +7,7 @@ import { DeskPage, Empty, Panel } from "@/components/desk/page";
 import { nightsIn } from "@/lib/dates";
 import { PHONE_PATTERN, formatDay, formatMoney, formatPhone, plural } from "@/lib/format";
 import { emailFor, nameFor, phoneFor } from "@/server/desk/bookings";
-import { guestProfile } from "@/server/desk/guests";
+import { guestProfile, REMOVED } from "@/server/desk/guests";
 import { may } from "@/server/staff/permissions";
 import { requireStaff } from "@/server/staff/sessions";
 
@@ -26,7 +26,9 @@ export default async function GuestPage({ params, searchParams }: PageProps<"/de
   const { guest, stays } = profile;
   // A training account sees a real visitor's details with the middle hidden, and so cannot edit them.
   const hidden = staff.training && !guest.sample;
-  const canEdit = may(staff, "guests.edit") && !hidden;
+  // Someone who asked to be forgotten has nothing left here to edit.
+  const removed = guest.name === REMOVED;
+  const canEdit = may(staff, "guests.edit") && !hidden && !removed;
   const act = `/desk/guests/${guest.id}/act`;
   const went = stays.filter((stay) => ["checked_in", "checked_out"].includes(stay.booking.status)).length;
   const coming = stays.filter((stay) => ["confirmed", "provisional"].includes(stay.booking.status)).length;
@@ -95,6 +97,11 @@ export default async function GuestPage({ params, searchParams }: PageProps<"/de
                 ))}
               </dl>
             )}
+            {removed ? (
+              <p className="border-t border-rule px-4 py-3 text-sm text-ink-faint sm:px-5">
+                This guest asked for their details to be deleted. Their stays and payments are kept without a name.
+              </p>
+            ) : null}
             {hidden ? (
               <p className="border-t border-rule px-4 py-3 text-sm text-ink-faint sm:px-5">
                 This is a real visitor. Training accounts see contact details with the middle hidden.
@@ -127,6 +134,26 @@ export default async function GuestPage({ params, searchParams }: PageProps<"/de
               </p>
             )}
           </Panel>
+
+          {may(staff, "guests.forget") && !staff.training && !removed ? (
+            <details className="rounded-xl border border-rule bg-white shadow-panel">
+              <summary className="cursor-pointer px-4 py-3 font-semibold text-heath-700 sm:px-5">
+                Remove this guest&apos;s details
+              </summary>
+              <form action={act} method="post" className="space-y-3 border-t border-rule px-4 py-4 sm:px-5">
+                <input type="hidden" name="action" value="forget" />
+                <p className="text-[0.95rem] text-ink-soft">
+                  For a guest who asks the lodge to delete what it holds about them. Their name, phone number, email
+                  address, requests, notes and every message written to them are removed, here and on each of their
+                  bookings. The stays and payments stay in the books without a name, as tax law requires.
+                </p>
+                <p className="text-[0.95rem] font-semibold">This cannot be undone.</p>
+                <button type="submit" className="button min-h-10 bg-heath-700 px-4 py-2 text-sm text-white">
+                  Remove their details for good
+                </button>
+              </form>
+            </details>
+          ) : null}
         </div>
 
         <div className="space-y-4">
