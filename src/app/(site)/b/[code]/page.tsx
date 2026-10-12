@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
@@ -198,11 +197,11 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
 
             <div className="mt-7 flex flex-wrap gap-3">
               {canPay ? (
-                <Link href={bookingPath(booking, "/pay")} className="button button-ember">
+                <a href={bookingPath(booking, "/pay")} className="button button-ember">
                   {booking.status === "held" || booking.status === "provisional"
                     ? "Pay and confirm"
                     : "Pay the balance"}
-                </Link>
+                </a>
               ) : null}
               {canHoldAgain ? (
                 <form action={bookingPath(booking, "/hold")} method="post">
@@ -217,9 +216,9 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
                 </a>
               ) : null}
               {booking.status === "expired" || booking.status === "cancelled" ? (
-                <Link href="/stay" className="button button-line-light">
+                <a href="/stay" className="button button-line-light">
                   Check other dates
-                </Link>
+                </a>
               ) : null}
             </div>
           </div>
@@ -265,14 +264,14 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
                   </p>
                   <div className="mt-5 flex flex-wrap gap-3">
                     {canChange ? (
-                      <Link href={bookingPath(booking, "/change")} className="button button-line">
+                      <a href={bookingPath(booking, "/change")} className="button button-line">
                         Change dates
-                      </Link>
+                      </a>
                     ) : null}
                     {canCancel ? (
-                      <Link href={bookingPath(booking, "/cancel")} className="button button-line">
+                      <a href={bookingPath(booking, "/cancel")} className="button button-line">
                         Cancel booking
-                      </Link>
+                      </a>
                     ) : null}
                   </div>
                 </section>
@@ -287,9 +286,9 @@ export default async function BookingPage({ params, searchParams }: PageProps<"/
                     Ukingo is 14 km from Nanyuki, on the Mount Kenya side. The last 4 km are a murram road that any car
                     manages in dry weather. Please arrive before dark: the gate closes at 9 pm.
                   </p>
-                  <Link href="/getting-here" className="link mt-3 inline-block">
+                  <a href="/getting-here" className="link mt-3 inline-block">
                     Directions and the map pin
-                  </Link>
+                  </a>
                 </section>
               ) : null}
             </div>

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 
 import { BookingBar } from "@/components/site/booking-bar";
@@ -63,7 +62,7 @@ export default async function HomePage() {
           <ul className="mt-12 grid gap-x-8 gap-y-14 md:grid-cols-2">
             {lodge.roomTypes.map((type, index) => (
               <li key={type.id} className={index % 2 === 1 ? "md:mt-16" : ""}>
-                <Link href={`/rooms/${type.slug}`} className="group block">
+                <a href={`/rooms/${type.slug}`} className="group block">
                   <div className="overflow-hidden rounded-2xl">
                     <Photo
                       name={type.slug}
@@ -83,7 +82,7 @@ export default async function HomePage() {
                       See the room
                     </span>
                   </p>
-                </Link>
+                </a>
               </li>
             ))}
           </ul>
@@ -97,9 +96,9 @@ export default async function HomePage() {
                 {words("home.place.heading")}
               </h2>
               <p className="mt-6 max-w-xl text-lg text-night-200">{words("home.place.body")}</p>
-              <Link href="/about" className="button button-line-light mt-8">
+              <a href="/about" className="button button-line-light mt-8">
                 About the lodge
-              </Link>
+              </a>
             </div>
 
             <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-rule-light">
@@ -126,9 +125,9 @@ export default async function HomePage() {
                 {words("home.experiences.heading")}
               </h2>
               <p className="mt-5 max-w-sm text-lg text-ink-soft">{words("home.experiences.introduction")}</p>
-              <Link href="/experiences" className="button button-line mt-8">
+              <a href="/experiences" className="button button-line mt-8">
                 All experiences
-              </Link>
+              </a>
             </div>
 
             <ul className="border-t border-rule">
@@ -164,12 +163,12 @@ export default async function HomePage() {
               <p className="mt-4 max-w-xl text-lg text-ink-soft">{words("home.directions.body")}</p>
             </div>
             <div className="flex flex-wrap gap-3 md:justify-end">
-              <Link href="/getting-here" className="button button-line">
+              <a href="/getting-here" className="button button-line">
                 Directions
-              </Link>
-              <Link href="/stay" className="button button-night">
+              </a>
+              <a href="/stay" className="button button-night">
                 Check dates
-              </Link>
+              </a>
             </div>
           </div>
         </section>

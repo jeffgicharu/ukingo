@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 import { Logo } from "@/components/site/logo";
 
 // Shown when a page fails while it is being built. The fault itself is
@@ -11,9 +9,9 @@ export default function ErrorPage({ error, retry }: { error: Error & { digest?: 
   return (
     <main id="main" className="contours flex min-h-dvh flex-1 flex-col bg-night-900 text-mist-50">
       <div className="wrap flex h-18 items-center md:h-20">
-        <Link href="/" aria-label="Ukingo, home">
+        <a href="/" aria-label="Ukingo, home">
           <Logo />
-        </Link>
+        </a>
       </div>
 
       <div className="wrap flex flex-1 flex-col justify-center pb-24">
@@ -26,9 +24,9 @@ export default function ErrorPage({ error, retry }: { error: Error & { digest?: 
           <button type="button" onClick={() => retry()} className="button button-ember">
             Try again
           </button>
-          <Link href="/" className="button button-line-light">
+          <a href="/" className="button button-line-light">
             Back to the lodge
-          </Link>
+          </a>
         </div>
         {error.digest ? <p className="label mt-10 text-night-400">Reference {error.digest}</p> : null}
       </div>

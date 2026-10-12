@@ -135,6 +135,18 @@ async function main(): Promise<void> {
   // An address with nothing at it gets the site's own "not found" page.
   await page("/nothing-is-here", { status: 404, contains: ["You have walked off the path."] });
 
+  // The back office: its door opens, and nothing behind it is shown to someone who has not signed in.
+  await page("/desk/sign-in", { contains: ["Sign in"] });
+  checked++;
+  const desk = await get("/desk");
+  if (desk) {
+    await desk.arrayBuffer();
+    const location = desk.headers.get("location") ?? "";
+    if (desk.status < 300 || desk.status >= 400 || !location.includes("/desk/sign-in")) {
+      failures.push({ path: "/desk", reason: `answered ${desk.status} instead of sending the visitor to sign in` });
+    }
+  }
+
   await file("/sitemap.xml", /xml/);
   await file("/robots.txt", /text\/plain/);
   await file("/manifest.webmanifest", /json/);

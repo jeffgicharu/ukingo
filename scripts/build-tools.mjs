@@ -1,5 +1,6 @@
 // Builds the command-line tools that run on the server beside the site:
-// the migrator, the seeder, the release check and the background jobs.
+// the migrator, the seeder, the release check, the background jobs and the
+// tool that adds the first member of staff.
 // Each becomes one self-contained file in dist/tools, so the server needs
 // nothing installed to run them.
 
@@ -13,6 +14,7 @@ await build({
     seed: "src/tools/seed.ts",
     "check-release": "src/tools/check-release.ts",
     jobs: "src/jobs/main.ts",
+    staff: "src/tools/staff.ts",
   },
   outdir: "dist/tools",
   outExtension: { ".js": ".mjs" },

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 
@@ -47,9 +46,9 @@ export default async function ChangePage({ params, searchParams }: PageProps<"/b
         <div className="wrap py-10 md:py-14">
           <div className="max-w-3xl">
             <nav aria-label="You are here" className="label text-ink-faint">
-              <Link href={home} className="underline-offset-4 hover:text-ink hover:underline">
+              <a href={home} className="underline-offset-4 hover:text-ink hover:underline">
                 Booking {booking.reference}
-              </Link>
+              </a>
               <span aria-hidden="true" className="mx-2">
                 /
               </span>
@@ -188,9 +187,9 @@ export default async function ChangePage({ params, searchParams }: PageProps<"/b
                   <button type="submit" className="button button-ember">
                     Move my stay to these dates
                   </button>
-                  <Link href={home} className="button button-line">
+                  <a href={home} className="button button-line">
                     Keep my dates
-                  </Link>
+                  </a>
                 </form>
               </section>
             ) : null}

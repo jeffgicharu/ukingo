@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 /**
@@ -59,9 +58,9 @@ function inline(text: string): ReactNode[] {
       // Only links within the site, or plain web addresses. Never a script.
       if (href.startsWith("/") && !href.startsWith("//")) {
         out.push(
-          <Link key={start} href={href}>
+          <a key={start} href={href}>
             {match[2]}
-          </Link>,
+          </a>,
         );
       } else if (/^https:\/\//.test(href)) {
         out.push(

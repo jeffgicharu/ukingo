@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 
 import { JsonLd } from "@/components/site/json-ld";
@@ -67,9 +66,9 @@ export default async function ExperiencesPage() {
               <h2 className="display text-3xl md:text-4xl">Choose your dates first</h2>
               <p className="mt-2 text-ink-soft">You add experiences on the next page, after picking a room.</p>
             </div>
-            <Link href="/stay" className="button button-night shrink-0">
+            <a href="/stay" className="button button-night shrink-0">
               Check dates
-            </Link>
+            </a>
           </div>
         </div>
       </main>

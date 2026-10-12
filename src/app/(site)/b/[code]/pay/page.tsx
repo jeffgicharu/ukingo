@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 
@@ -63,9 +62,9 @@ export default async function PayPage({ params, searchParams }: PageProps<"/b/[c
       <main id="main" className="flex-1">
         <div className="wrap py-10 md:py-14">
           <nav aria-label="You are here" className="label text-ink-faint">
-            <Link href={home} className="underline-offset-4 hover:text-ink hover:underline">
+            <a href={home} className="underline-offset-4 hover:text-ink hover:underline">
               Booking {booking.reference}
-            </Link>
+            </a>
             <span aria-hidden="true" className="mx-2">
               /
             </span>

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 
 import { PageHeading } from "@/components/site/page-heading";
@@ -82,9 +81,9 @@ export default async function FindBookingPage({ searchParams }: PageProps<"/find
             <p className="mt-10 text-sm text-ink-faint">
               For your privacy, the link is only ever sent to the address on the booking. If you booked without an email
               address, ask at the front desk when you arrive. See also our{" "}
-              <Link href="/questions" className="link">
+              <a href="/questions" className="link">
                 questions
-              </Link>
+              </a>
               .
             </p>
           </div>

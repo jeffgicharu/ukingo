@@ -119,7 +119,7 @@ export function BookingBar({
           See what is free
         </button>
       </div>
-      <StayCalendar idPrefix={idPrefix} room={room} first={first} lastDeparture={lastDeparture} />
+      <StayCalendar room={room} first={first} lastDeparture={lastDeparture} />
     </form>
   );
 }

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
@@ -44,9 +43,9 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[slug]">) {
       <main id="main" className="flex-1">
         <div className="wrap pt-8 md:pt-12">
           <nav aria-label="You are here" className="label text-ink-faint">
-            <Link href="/rooms" className="underline-offset-4 hover:text-ink hover:underline">
+            <a href="/rooms" className="underline-offset-4 hover:text-ink hover:underline">
               Rooms
-            </Link>
+            </a>
             <span aria-hidden="true" className="mx-2">
               /
             </span>
@@ -198,7 +197,7 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[slug]">) {
           <ul className="mt-8 grid gap-8 sm:grid-cols-3">
             {others.map((other) => (
               <li key={other.id}>
-                <Link href={`/rooms/${other.slug}`} className="group block">
+                <a href={`/rooms/${other.slug}`} className="group block">
                   <div className="overflow-hidden rounded-xl">
                     <Photo
                       name={other.slug}
@@ -211,7 +210,7 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[slug]">) {
                   <p className="mt-1 text-ink-faint">
                     Sleeps {other.sleeps} · from <span className="tabular">{formatMoney(other.fromCents)}</span>
                   </p>
-                </Link>
+                </a>
               </li>
             ))}
           </ul>

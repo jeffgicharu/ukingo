@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
@@ -50,9 +49,9 @@ export default async function ContentPage({ params }: PageProps<"/[page]">) {
             <div className="rounded-2xl bg-mist-100 p-6 md:sticky md:top-8">
               <h2 className="display text-2xl">Ready to come?</h2>
               <p className="mt-2 text-ink-soft">See which rooms are free for your dates.</p>
-              <Link href="/stay" className="button button-night mt-5 w-full">
+              <a href="/stay" className="button button-night mt-5 w-full">
                 Check dates
-              </Link>
+              </a>
               {found.slug === "getting-here" ? (
                 <a
                   href="https://www.google.com/maps/search/?api=1&query=0.0500,37.1500"

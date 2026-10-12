@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 
 import { JsonLd } from "@/components/site/json-ld";
@@ -61,9 +60,9 @@ export default async function QuestionsPage() {
 
           <p className="mt-16 text-ink-soft">
             The full terms are on{" "}
-            <Link href="/booking-terms" className="link">
+            <a href="/booking-terms" className="link">
               Booking and cancellation
-            </Link>
+            </a>
             .
           </p>
         </div>

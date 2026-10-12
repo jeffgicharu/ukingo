@@ -332,7 +332,9 @@
   /* Contour lines, as on a map of the mountain. Laid over dark panels. */
   .contours {
     background-image: url("/contours.svg");
-    background-size: 56rem auto;
+    /* One drawing stretched over the whole panel. Repeating it left a visible seam. */
+    background-size: cover;
+    background-repeat: no-repeat;
     background-position: center;
   }
 

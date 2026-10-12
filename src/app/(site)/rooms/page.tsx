@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 
 import { JsonLd } from "@/components/site/json-ld";
@@ -38,7 +37,7 @@ export default async function RoomsPage() {
           <ul className="space-y-20 md:space-y-28">
             {lodge.roomTypes.map((type, index) => (
               <li key={type.id} className="grid gap-8 md:grid-cols-2 md:items-center md:gap-14">
-                <Link
+                <a
                   href={`/rooms/${type.slug}`}
                   className={`block overflow-hidden rounded-2xl ${index % 2 === 1 ? "md:order-2" : ""}`}
                   tabIndex={-1}
@@ -51,16 +50,16 @@ export default async function RoomsPage() {
                     priority={index === 0}
                     className="aspect-4/3 w-full"
                   />
-                </Link>
+                </a>
 
                 <div>
                   <p className="label text-ink-faint">
                     Sleeps {type.sleeps} · {type.rooms.length === 1 ? "One only" : `${type.rooms.length} of these`}
                   </p>
                   <h2 className="display mt-3 text-4xl md:text-5xl">
-                    <Link href={`/rooms/${type.slug}`} className="hover:text-ember-800">
+                    <a href={`/rooms/${type.slug}`} className="hover:text-ember-800">
                       {type.name}
-                    </Link>
+                    </a>
                   </h2>
                   <p className="mt-4 text-lg text-ink-soft">{type.tagline}</p>
 
@@ -82,9 +81,9 @@ export default async function RoomsPage() {
                       From <span className="tabular">{formatMoney(type.fromCents)}</span>{" "}
                       <span className="font-normal text-ink-faint">a night</span>
                     </p>
-                    <Link href={`/rooms/${type.slug}`} className="button button-night">
+                    <a href={`/rooms/${type.slug}`} className="button button-night">
                       See {theRoom(type.name)}
-                    </Link>
+                    </a>
                   </div>
                 </div>
               </li>

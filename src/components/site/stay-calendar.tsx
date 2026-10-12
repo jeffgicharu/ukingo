@@ -33,17 +33,7 @@ function weeksOf(month: Day): (Day | null)[][] {
  * free and the least it costs. Choosing an arrival and a departure here fills
  * in the two date fields beside it, which still work on their own.
  */
-export function StayCalendar({
-  idPrefix,
-  room,
-  first,
-  lastDeparture,
-}: {
-  idPrefix: string;
-  room?: string;
-  first: Day;
-  lastDeparture: Day;
-}) {
+export function StayCalendar({ room, first, lastDeparture }: { room?: string; first: Day; lastDeparture: Day }) {
   const panelId = useId();
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState<Day>(startOfMonth(first));
@@ -56,9 +46,11 @@ export function StayCalendar({
   const fetched = useRef(new Set<string>());
   const grid = useRef<HTMLDivElement>(null);
 
+  const root = useRef<HTMLDivElement>(null);
   const field = useCallback(
-    (which: "in" | "out") => document.getElementById(`${idPrefix}-${which}`) as HTMLInputElement | null,
-    [idPrefix],
+    (which: "in" | "out") =>
+      root.current?.closest("form")?.querySelector<HTMLInputElement>(`input[name="${which}"]`) ?? null,
+    [],
   );
 
   // The calendar starts from whatever dates the fields already hold, and follows them if they are typed into.
@@ -156,7 +148,7 @@ export function StayCalendar({
     from && to ? Object.entries(nights).some(([day, night]) => day >= from && day < to && night.free === 0) : false;
 
   return (
-    <div className="mt-3">
+    <div ref={root} className="mt-3">
       <button
         type="button"
         aria-expanded={open}
@@ -190,7 +182,7 @@ export function StayCalendar({
               onClick={() => setMonth((value) => addMonths(value, -1))}
               disabled={!canGoBack}
               aria-label="Earlier months"
-              className="flex size-10 items-center justify-center rounded-full border border-mist-300 hover:border-night-600 disabled:opacity-30 disabled:hover:border-mist-300"
+              className="flex size-10 shrink-0 items-center justify-center rounded-full border border-mist-300 hover:border-night-600 disabled:opacity-30 disabled:hover:border-mist-300"
             >
               <svg
                 viewBox="0 0 12 12"
@@ -215,7 +207,7 @@ export function StayCalendar({
               onClick={() => setMonth((value) => addMonths(value, 1))}
               disabled={!canGoForward}
               aria-label="Later months"
-              className="flex size-10 items-center justify-center rounded-full border border-mist-300 hover:border-night-600 disabled:opacity-30 disabled:hover:border-mist-300"
+              className="flex size-10 shrink-0 items-center justify-center rounded-full border border-mist-300 hover:border-night-600 disabled:opacity-30 disabled:hover:border-mist-300"
             >
               <svg
                 viewBox="0 0 12 12"
@@ -297,7 +289,7 @@ export function StayCalendar({
                                 <span
                                   className={`tabular text-[0.65rem] ${isFrom || isTo ? "text-ember-300" : full ? "" : "text-ink-faint"}`}
                                 >
-                                  {full ? "Full" : night?.from ? short(night.from) : " "}
+                                  {isTo ? "Leave" : full ? "Full" : night?.from ? short(night.from) : " "}
                                 </span>
                               ) : null}
                             </button>

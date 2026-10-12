@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 
@@ -35,9 +34,9 @@ export default async function CancelPage({ params }: PageProps<"/b/[code]/cancel
         <div className="wrap py-10 md:py-14">
           <div className="max-w-3xl">
             <nav aria-label="You are here" className="label text-ink-faint">
-              <Link href={home} className="underline-offset-4 hover:text-ink hover:underline">
+              <a href={home} className="underline-offset-4 hover:text-ink hover:underline">
                 Booking {booking.reference}
-              </Link>
+              </a>
               <span aria-hidden="true" className="mx-2">
                 /
               </span>
@@ -83,9 +82,9 @@ export default async function CancelPage({ params }: PageProps<"/b/[code]/cancel
               <button type="submit" className="button bg-heath-600 text-white hover:bg-heath-700">
                 Yes, cancel the booking
               </button>
-              <Link href={home} className="button button-line">
+              <a href={home} className="button button-line">
                 Keep my booking
-              </Link>
+              </a>
             </form>
             <p className="mt-4 text-sm text-ink-faint">
               The room goes back on sale at once, and this cannot be undone.
@@ -93,9 +92,9 @@ export default async function CancelPage({ params }: PageProps<"/b/[code]/cancel
                 <>
                   {" "}
                   You could{" "}
-                  <Link href={bookingPath(booking, "/change")} className="link">
+                  <a href={bookingPath(booking, "/change")} className="link">
                     move your stay to other dates
-                  </Link>{" "}
+                  </a>{" "}
                   instead.
                 </>
               ) : null}

@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { Logo } from "./logo";
 
 const columns = [
@@ -49,12 +47,12 @@ export function SiteFooter({ year }: { year: number }) {
               <ul className="mt-4 space-y-3">
                 {column.links.map((link) => (
                   <li key={link.href}>
-                    <Link
+                    <a
                       href={link.href}
                       className="text-mist-100 underline-offset-4 hover:text-ember-300 hover:underline"
                     >
                       {link.label}
-                    </Link>
+                    </a>
                   </li>
                 ))}
               </ul>

@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { Logo } from "./logo";
 
 const links = [
@@ -19,26 +17,26 @@ export function SiteHeader({ over = false }: { over?: boolean }) {
   return (
     <header className={over ? "absolute inset-x-0 top-0 z-30" : "relative z-30 border-b border-rule bg-mist-50"}>
       <div className={`wrap flex h-18 items-center justify-between gap-4 md:h-20 ${tone}`}>
-        <Link href="/" aria-label="Ukingo, home" className="shrink-0">
+        <a href="/" aria-label="Ukingo, home" className="shrink-0">
           <Logo />
-        </Link>
+        </a>
 
         <nav aria-label="Main" className="hidden items-center gap-8 lg:flex">
           {links.map((link) => (
-            <Link
+            <a
               key={link.href}
               href={link.href}
               className="text-[0.95rem] font-medium underline-offset-8 decoration-ember-500 decoration-2 hover:underline"
             >
               {link.label}
-            </Link>
+            </a>
           ))}
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link href="/stay" className="button button-ember min-h-11 px-4 text-sm sm:px-5">
+          <a href="/stay" className="button button-ember min-h-11 px-4 text-sm sm:px-5">
             Check dates
-          </Link>
+          </a>
 
           {/* Works without script: the browser opens and closes it. */}
           <details className="group relative lg:hidden">
@@ -66,20 +64,20 @@ export function SiteHeader({ over = false }: { over?: boolean }) {
               className="absolute right-0 top-13 w-64 max-w-[calc(100vw-2.5rem)] rounded-xl border border-rule bg-mist-50 p-2 text-ink shadow-lift"
             >
               {links.map((link) => (
-                <Link
+                <a
                   key={link.href}
                   href={link.href}
                   className="block rounded-lg px-4 py-3 font-medium hover:bg-mist-100"
                 >
                   {link.label}
-                </Link>
+                </a>
               ))}
-              <Link
+              <a
                 href="/find-booking"
                 className="mt-1 block rounded-lg border-t border-rule px-4 py-3 font-medium hover:bg-mist-100"
               >
                 Find my booking
-              </Link>
+              </a>
             </nav>
           </details>
         </div>

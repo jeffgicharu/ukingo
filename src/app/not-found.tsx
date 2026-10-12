@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { DawnScene } from "@/components/site/dawn-scene";
 import { Logo } from "@/components/site/logo";
@@ -21,9 +20,9 @@ export default function NotFound() {
       <div className="absolute inset-0 -z-10 bg-night-950/40" />
 
       <div className="wrap flex h-18 items-center md:h-20">
-        <Link href="/" aria-label="Ukingo, home">
+        <a href="/" aria-label="Ukingo, home">
           <Logo />
-        </Link>
+        </a>
       </div>
 
       <div className="wrap flex flex-1 flex-col justify-center pb-24">
@@ -33,15 +32,15 @@ export default function NotFound() {
           There is nothing at this address. It may have moved, or the link may have been mistyped.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
-          <Link href="/" className="button button-ember">
+          <a href="/" className="button button-ember">
             Back to the lodge
-          </Link>
-          <Link href="/rooms" className="button button-line-light">
+          </a>
+          <a href="/rooms" className="button button-line-light">
             See the rooms
-          </Link>
-          <Link href="/find-booking" className="button button-line-light">
+          </a>
+          <a href="/find-booking" className="button button-line-light">
             Find my booking
-          </Link>
+          </a>
         </div>
       </div>
     </main>

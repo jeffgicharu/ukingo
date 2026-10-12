@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 
 import { BookingBar } from "@/components/site/booking-bar";
@@ -104,9 +103,9 @@ export default async function StayPage({ searchParams }: PageProps<"/stay">) {
               <p className="mt-10 max-w-2xl text-sm text-ink-faint">
                 Prices are for the room, with breakfast for everyone in it and all taxes. Half board and full board can
                 be added on the next page. See{" "}
-                <Link href="/booking-terms" className="link">
+                <a href="/booking-terms" className="link">
                   booking and cancellation
-                </Link>
+                </a>
                 .
               </p>
             </>
@@ -115,7 +114,7 @@ export default async function StayPage({ searchParams }: PageProps<"/stay">) {
               <ul className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
                 {lodge.roomTypes.map((type) => (
                   <li key={type.id}>
-                    <Link href={`/rooms/${type.slug}`} className="group block">
+                    <a href={`/rooms/${type.slug}`} className="group block">
                       <div className="overflow-hidden rounded-xl">
                         <Photo
                           name={type.slug}
@@ -128,7 +127,7 @@ export default async function StayPage({ searchParams }: PageProps<"/stay">) {
                       <p className="mt-1 text-ink-faint">
                         Sleeps {type.sleeps} · from <span className="tabular">{formatMoney(type.fromCents)}</span>
                       </p>
-                    </Link>
+                    </a>
                   </li>
                 ))}
               </ul>
@@ -179,9 +178,9 @@ function OfferCard({
         <div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <h3 className="display text-3xl">
-              <Link href={`/rooms/${roomType.slug}`} className="hover:text-ember-800">
+              <a href={`/rooms/${roomType.slug}`} className="hover:text-ember-800">
                 {roomType.name}
-              </Link>
+              </a>
             </h3>
             {free && offer.free <= 2 && offer.free < roomType.rooms.length ? (
               <span className="label rounded-full bg-ember-100 px-2.5 py-1 text-ember-800">
@@ -224,12 +223,12 @@ function OfferCard({
                 <p className="display tabular text-4xl">{formatMoney(offer.quote!.totalCents)}</p>
                 <p className="text-sm text-ink-faint">for {plural(nights, "night")}, with breakfast</p>
               </div>
-              <Link
+              <a
                 href={stayAddress("/book", stay, party, { room: roomType.slug })}
                 className="button button-ember w-full lg:w-auto"
               >
                 Book {theRoom(roomType.name)}
-              </Link>
+              </a>
             </>
           ) : (
             <p className="rounded-xl bg-mist-100 p-4 text-left text-sm text-ink-soft lg:max-w-60">

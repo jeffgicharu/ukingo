@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 
 import { BookingChoices } from "@/components/site/booking-choices";
@@ -69,9 +68,9 @@ export default async function BookPage({ searchParams }: PageProps<"/book">) {
           <div className="wrap py-20">
             <h1 className="display text-5xl">Let us start again</h1>
             <p className="mt-4 max-w-xl text-lg text-ink-soft">{requestProblem}</p>
-            <Link href="/stay" className="button button-night mt-8">
+            <a href="/stay" className="button button-night mt-8">
               Check dates
-            </Link>
+            </a>
           </div>
         </main>
       </>
@@ -98,9 +97,9 @@ export default async function BookPage({ searchParams }: PageProps<"/book">) {
       <main id="main" className="flex-1">
         <div className="wrap py-10 md:py-14">
           <nav aria-label="You are here" className="label text-ink-faint">
-            <Link href={backToSearch} className="underline-offset-4 hover:text-ink hover:underline">
+            <a href={backToSearch} className="underline-offset-4 hover:text-ink hover:underline">
               Rooms for your dates
-            </Link>
+            </a>
             <span aria-hidden="true" className="mx-2">
               /
             </span>
@@ -111,9 +110,9 @@ export default async function BookPage({ searchParams }: PageProps<"/book">) {
           <p className="mt-3 text-lg text-ink-soft">
             {formatStay(stay)} · {plural(nights, "night")} · {plural(party.adults, "adult")}
             {party.children ? `, ${plural(party.children, "child", "children")}` : ""}{" "}
-            <Link href={backToSearch} className="link ml-1 whitespace-nowrap text-base">
+            <a href={backToSearch} className="link ml-1 whitespace-nowrap text-base">
               Change
-            </Link>
+            </a>
           </p>
 
           {problem ? (
@@ -121,9 +120,9 @@ export default async function BookPage({ searchParams }: PageProps<"/book">) {
               <h2 className="display text-2xl text-heath-700">{problem.title}</h2>
               <p className="mt-2">{problem.text}</p>
               {problemCode === "full" ? (
-                <Link href={backToSearch} className="button button-night mt-4">
+                <a href={backToSearch} className="button button-night mt-4">
                   See what is free
-                </Link>
+                </a>
               ) : null}
             </div>
           ) : null}
@@ -134,9 +133,9 @@ export default async function BookPage({ searchParams }: PageProps<"/book">) {
               <p className="mt-2 text-ink-soft">
                 It was taken while you were choosing. Other rooms or dates may be free.
               </p>
-              <Link href={backToSearch} className="button button-night mt-4">
+              <a href={backToSearch} className="button button-night mt-4">
                 See what is free
-              </Link>
+              </a>
             </div>
           ) : (
             <form action="/book/hold" method="post" className="mt-10">
@@ -267,9 +266,9 @@ export default async function BookPage({ searchParams }: PageProps<"/book">) {
                 <div className="flex flex-col gap-4 border-t border-rule pt-8 sm:flex-row sm:items-center sm:justify-between">
                   <p className="max-w-md text-sm text-ink-faint">
                     By continuing you accept the{" "}
-                    <Link href="/booking-terms" className="link">
+                    <a href="/booking-terms" className="link">
                       booking and cancellation terms
-                    </Link>
+                    </a>
                     . Nothing is charged until you approve the payment on your phone.
                   </p>
                   <button type="submit" className="button button-ember shrink-0 px-8">
