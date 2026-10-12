@@ -190,6 +190,16 @@ describe("the terms a booking is made under", () => {
         { until: "2026-10-30", keep_percent: 30 },
         { until: null, keep_percent: 100 },
       ],
+      policy: {
+        deposit_percent: 30,
+        balance_due_days: 14,
+        change_until_days: 7,
+        cancellation_steps: [
+          { min_days: 30, keep_percent: 0 },
+          { min_days: 14, keep_percent: 30 },
+          { min_days: 0, keep_percent: 100 },
+        ],
+      },
     });
   });
 

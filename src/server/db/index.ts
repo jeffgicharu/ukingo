@@ -13,6 +13,8 @@ pg.types.setTypeParser(pg.types.builtins.INT8, (value) => Number(value));
 export type Database = NodePgDatabase<typeof schema>;
 /** A database handle or an open transaction: anything a query can run on. */
 export type Queryable = Pick<Database, "select" | "insert" | "update" | "delete" | "execute">;
+/** An open transaction. Inside it, `transaction()` opens a savepoint. */
+export type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 type Shared = { pool?: pg.Pool; db?: Database };
 

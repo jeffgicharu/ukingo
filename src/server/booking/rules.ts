@@ -122,13 +122,31 @@ function hourLabel(hour: number): string {
  * are stored with the booking and never recalculated from later settings.
  */
 export function termsFor(settings: Settings, stay: Stay, totalCents: number, today: Day): BookingTerms {
-  const balanceDue = addDays(stay.from, -settings.balanceDueDays);
-  const payInFull = settings.depositPercent >= 100 || balanceDue <= today;
-  const depositPercent = payInFull ? 100 : settings.depositPercent;
+  return resolveTerms(
+    {
+      deposit_percent: settings.depositPercent,
+      balance_due_days: settings.balanceDueDays,
+      change_until_days: settings.changeUntilDays,
+      cancellation_steps: settings.cancellationSteps,
+    },
+    stay,
+    totalCents,
+    today,
+  );
+}
 
-  const changeUntil = addDays(stay.from, -settings.changeUntilDays);
+/**
+ * Turns a booking's rules into dates and amounts for a stay. Used when the
+ * booking is made, and again with the booking's own rules if its dates move.
+ */
+export function resolveTerms(policy: BookingTerms["policy"], stay: Stay, totalCents: number, today: Day): BookingTerms {
+  const balanceDue = addDays(stay.from, -policy.balance_due_days);
+  const payInFull = policy.deposit_percent >= 100 || balanceDue <= today;
+  const depositPercent = payInFull ? 100 : policy.deposit_percent;
 
-  const steps = [...settings.cancellationSteps].sort((a, b) => b.min_days - a.min_days);
+  const changeUntil = addDays(stay.from, -policy.change_until_days);
+
+  const steps = [...policy.cancellation_steps].sort((a, b) => b.min_days - a.min_days);
 
   return {
     deposit_percent: depositPercent,
@@ -140,6 +158,7 @@ export function termsFor(settings: Settings, stay: Stay, totalCents: number, tod
       until: index === steps.length - 1 ? null : addDays(stay.from, -step.min_days),
       keep_percent: step.keep_percent,
     })),
+    policy: { ...policy, cancellation_steps: steps },
   };
 }
 

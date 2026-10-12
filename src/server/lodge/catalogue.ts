@@ -71,26 +71,32 @@ export type Catalogue = {
 
 /** Reads the catalogue as it is right now. Pass a transaction to read inside it. */
 export async function loadCatalogue(q: Queryable = db()): Promise<Catalogue> {
-  const [settingsRows, typeRows, roomRows, seasonRows, rangeRows, rateRows, ruleRows, planRows, extraRows] =
-    await Promise.all([
-      q.select().from(schema.settings),
-      q
-        .select()
-        .from(schema.roomTypes)
-        .where(eq(schema.roomTypes.active, true))
-        .orderBy(asc(schema.roomTypes.position)),
-      q.select().from(schema.rooms).where(eq(schema.rooms.active, true)).orderBy(asc(schema.rooms.position)),
-      q.select().from(schema.seasons).orderBy(asc(schema.seasons.position)),
-      q.select().from(schema.seasonDates),
-      q.select().from(schema.rates),
-      q.select().from(schema.stayRules),
-      q
-        .select()
-        .from(schema.mealPlans)
-        .where(eq(schema.mealPlans.active, true))
-        .orderBy(asc(schema.mealPlans.position)),
-      q.select().from(schema.extras).where(eq(schema.extras.active, true)).orderBy(asc(schema.extras.position)),
-    ]);
+  // One query at a time: inside a transaction they all share one connection.
+  const settingsRows = await q.select().from(schema.settings);
+  const typeRows = await q
+    .select()
+    .from(schema.roomTypes)
+    .where(eq(schema.roomTypes.active, true))
+    .orderBy(asc(schema.roomTypes.position));
+  const roomRows = await q
+    .select()
+    .from(schema.rooms)
+    .where(eq(schema.rooms.active, true))
+    .orderBy(asc(schema.rooms.position));
+  const seasonRows = await q.select().from(schema.seasons).orderBy(asc(schema.seasons.position));
+  const rangeRows = await q.select().from(schema.seasonDates);
+  const rateRows = await q.select().from(schema.rates);
+  const ruleRows = await q.select().from(schema.stayRules);
+  const planRows = await q
+    .select()
+    .from(schema.mealPlans)
+    .where(eq(schema.mealPlans.active, true))
+    .orderBy(asc(schema.mealPlans.position));
+  const extraRows = await q
+    .select()
+    .from(schema.extras)
+    .where(eq(schema.extras.active, true))
+    .orderBy(asc(schema.extras.position));
 
   const settings = settingsRows[0];
   if (!settings) {

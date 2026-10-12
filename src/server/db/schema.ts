@@ -214,6 +214,16 @@ export type BookingTerms = {
   change_until: string | null;
   /** In order. A cancellation on or before `until` keeps `keep_percent` of the total. */
   cancellation: { until: string | null; keep_percent: number }[];
+  /**
+   * The rules themselves, as day counts, so that the dates above can be
+   * worked out again from the same rules if the stay is moved.
+   */
+  policy: {
+    deposit_percent: number;
+    balance_due_days: number;
+    change_until_days: number;
+    cancellation_steps: CancellationStep[];
+  };
 };
 
 export const bookings = pgTable("bookings", {
@@ -325,6 +335,7 @@ export const payments = pgTable("payments", {
   requestedAt: moment("requested_at").notNull(),
   settledAt: moment("settled_at"),
   statusChecks: integer("status_checks").notNull().default(0),
+  checkedAt: moment("checked_at"),
   recordedBy: integer("recorded_by").references(() => staff.id),
   originIp: inet("origin_ip"),
 });
