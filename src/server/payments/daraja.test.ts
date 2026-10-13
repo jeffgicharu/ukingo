@@ -34,9 +34,11 @@ describe("asking Safaricom what became of a prompt", () => {
 
 describe("what a result code means", () => {
   it("is the same whether the result was sent or asked for, for the codes the site knows", () => {
-    for (const code of ["0", "1032", "1037", "1019", "2001", "1", "17"]) {
+    for (const code of ["0", "1032", "1037", "1019", "2001", "1", "17", "1001", "1025"]) {
       expect(readAskedResult(code)).toEqual(readResult(code));
     }
+    // A prompt that never reached the phone is over, even though the site has no special word for it.
+    expect(readAskedResult("1025")).toEqual({ status: "failed", failure: "other" });
     expect(readResult("0")).toEqual({ status: "paid" });
     expect(readResult("1032")).toEqual({ status: "failed", failure: "cancelled" });
   });

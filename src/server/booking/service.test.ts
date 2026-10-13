@@ -489,6 +489,44 @@ describe("paying", () => {
     expect(await messagesFor(booking.id)).toEqual([]);
   });
 
+  it("takes the money when it lands after M-Pesa had said the prompt failed", async () => {
+    const booking = await holdBooking(request(), monday);
+    const { mpesa } = fakeMpesa();
+    const payment = await startMpesaPayment(
+      { bookingId: booking.id, cents: booking.terms.deposit_cents, phone: guest.phone, who: { actor: "guest" } },
+      monday,
+      mpesa,
+    );
+    await settlePayment(
+      payment.id,
+      { status: "failed", failure: "unreachable", detail: "No response from user." },
+      monday,
+    );
+    expect((await fresh(booking.id)).status).toBe("held");
+
+    // Neither a second failure nor a claim that cannot be checked changes what is on record.
+    const again = await settlePayment(payment.id, { status: "failed", failure: "cancelled" }, monday);
+    expect(again.payment.failure).toBe("unreachable");
+    expect((await settlePayment(payment.id, { status: "paid" }, monday)).effect).toBe("unchanged");
+    const wrongSum = await settlePayment(
+      payment.id,
+      { status: "paid", receipt: "TJC0000001", paidShillings: 1 },
+      monday,
+    );
+    expect(wrongSum).toMatchObject({ effect: "unchanged", payment: { status: "failed", failure: "unreachable" } });
+
+    const landed = await settlePayment(
+      payment.id,
+      { status: "paid", receipt: "TJC4X8PQ21", paidShillings: 14_250 },
+      monday,
+    );
+    expect(landed).toMatchObject({
+      effect: "confirmed",
+      payment: { status: "paid", receipt: "TJC4X8PQ21", failure: null },
+    });
+    expect((await fresh(booking.id)).status).toBe("confirmed");
+  });
+
   it("marks the payment failed when Safaricom refuses to send the prompt", async () => {
     const booking = await holdBooking(request(), monday);
     const { mpesa } = fakeMpesa({ refuse: "Invalid PhoneNumber" });

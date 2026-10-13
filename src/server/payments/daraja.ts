@@ -28,26 +28,24 @@ export const MPESA_LIMIT_CENTS = 250_000 * 100;
 
 type Outcome = { status: "paid" } | { status: "failed"; failure: PaymentFailure };
 
-/** What Safaricom's result codes mean. */
+/** The result codes that are the last word on a prompt, and what each means. */
+const FINAL = new Map<string, Outcome>([
+  ["0", { status: "paid" }],
+  ["1032", { status: "failed", failure: "cancelled" }],
+  // Safaricom gives this both for a phone it could not reach and for a prompt nobody answered.
+  ["1037", { status: "failed", failure: "unreachable" }],
+  ["1019", { status: "failed", failure: "timeout" }],
+  ["2001", { status: "failed", failure: "wrong_pin" }],
+  ["1", { status: "failed", failure: "insufficient_funds" }],
+  ["17", { status: "failed", failure: "limit" }],
+  // The phone was busy with another M-Pesa request, or the prompt could not be sent to it.
+  ["1001", { status: "failed", failure: "other" }],
+  ["1025", { status: "failed", failure: "other" }],
+]);
+
+/** What a result code means when Safaricom sends it. One this site has never met is a failure of some other kind. */
 export function readResult(code: string): Outcome {
-  switch (code) {
-    case "0":
-      return { status: "paid" };
-    case "1032":
-      return { status: "failed", failure: "cancelled" };
-    case "1037":
-      return { status: "failed", failure: "unreachable" };
-    case "1019":
-      return { status: "failed", failure: "timeout" };
-    case "2001":
-      return { status: "failed", failure: "wrong_pin" };
-    case "1":
-      return { status: "failed", failure: "insufficient_funds" };
-    case "17":
-      return { status: "failed", failure: "limit" };
-    default:
-      return { status: "failed", failure: "other" };
-  }
+  return FINAL.get(code) ?? { status: "failed", failure: "other" };
 }
 
 /**
@@ -57,8 +55,7 @@ export function readResult(code: string): Outcome {
  * or the site giving up.
  */
 export function readAskedResult(code: string): Outcome | null {
-  const outcome = readResult(code);
-  return outcome.status === "failed" && outcome.failure === "other" ? null : outcome;
+  return FINAL.get(code) ?? null;
 }
 
 /** Safaricom's result code for a prompt the phone has not answered yet. */
@@ -88,7 +85,7 @@ export function failureMessage(failure: PaymentFailure | null): string {
     case "insufficient_funds":
       return "There was not enough money in the M-Pesa account. Nothing was paid. Top up and try again, or pay from another number.";
     case "unreachable":
-      return "The phone could not be reached. Check that it is on, has signal and is a Safaricom line, then send the prompt again.";
+      return "The prompt got no answer. Nothing was paid. If it never appeared on the phone, check that the phone is on, has signal and is a Safaricom line, then send it again.";
     case "limit":
       return "This payment would take the M-Pesa account past its limit. Nothing was paid. Try a smaller amount or another number.";
     default:

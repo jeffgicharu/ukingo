@@ -301,23 +301,24 @@ export async function settlePayment(
       return { payment, effect: "unchanged" as const };
     }
 
-    // A result M-Pesa gave stands. One the site assumed, having heard nothing, gives way to real news.
+    // A failure the site assumed, having heard nothing, gives way to any real news. A failure
+    // M-Pesa itself gave stands against everything but one thing: word, with a receipt and the
+    // right amount, that the money did arrive. A guest who has paid has paid.
+    const asked = Math.round((payment.promptCents ?? payment.cents) / 100);
     const assumed = payment.status === "failed" && payment.failureDetail === ASSUMED;
-    if (payment.status === "failed" && !assumed) {
+    const moneyArrived = news.status === "paid" && Boolean(news.receipt) && news.paidShillings === asked;
+    if (payment.status === "failed" && !assumed && !moneyArrived) {
       return { payment, effect: "unchanged" as const };
     }
 
     let outcome = news;
     // The amount comes from the site's own record, never from the message.
-    if (outcome.status === "paid" && outcome.paidShillings != null) {
-      const asked = Math.round((payment.promptCents ?? payment.cents) / 100);
-      if (outcome.paidShillings !== asked) {
-        outcome = {
-          status: "failed",
-          failure: "other",
-          detail: `M-Pesa reported ${outcome.paidShillings} shillings where ${asked} were asked.`,
-        };
-      }
+    if (outcome.status === "paid" && outcome.paidShillings != null && outcome.paidShillings !== asked) {
+      outcome = {
+        status: "failed",
+        failure: "other",
+        detail: `M-Pesa reported ${outcome.paidShillings} shillings where ${asked} were asked.`,
+      };
     }
 
     if (outcome.status === "failed") {
@@ -369,7 +370,7 @@ function failureWord(failure: PaymentFailure): string {
     timeout: "not answered in time",
     wrong_pin: "wrong PIN",
     insufficient_funds: "not enough money in the account",
-    unreachable: "the phone could not be reached",
+    unreachable: "the prompt got no answer, or the phone could not be reached",
     limit: "over the account's limit",
     other: "M-Pesa could not complete it",
   };
