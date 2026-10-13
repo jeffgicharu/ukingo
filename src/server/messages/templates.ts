@@ -112,6 +112,18 @@ function stayFacts(context: MessageContext): [string, string][] {
   ];
 }
 
+/** " (M-Pesa receipt TJC4X8PQ21)": what a payment can be traced by, named for how it was paid. */
+function proofOf(payment: MessageContext["payment"]): string {
+  if (!payment?.receipt) return "";
+  const names: Record<string, string> = {
+    mpesa_prompt: "M-Pesa receipt",
+    mpesa_desk: "M-Pesa receipt",
+    bank: "bank reference",
+    test: "test payment",
+  };
+  return ` (${names[payment.method] ?? "reference"} ${payment.receipt})`;
+}
+
 function moneyFacts(context: MessageContext): [string, string][] {
   const rows: [string, string][] = [
     ["Total", formatMoney(context.totalCents)],
@@ -171,7 +183,7 @@ function blocksFor(kind: MessageKind, context: MessageContext): { subject: strin
             ? [
                 {
                   type: "text" as const,
-                  text: `We received ${formatMoney(context.payment.cents)}${context.payment.receipt ? ` (M-Pesa receipt ${context.payment.receipt})` : ""}.`,
+                  text: `We received ${formatMoney(context.payment.cents)}${proofOf(context.payment)}.`,
                 },
               ]
             : []),
@@ -203,7 +215,7 @@ function blocksFor(kind: MessageKind, context: MessageContext): { subject: strin
         blocks: [
           {
             type: "text",
-            text: `Dear ${name}, we received ${formatMoney(context.payment?.cents ?? 0)}${context.payment?.receipt ? ` (M-Pesa receipt ${context.payment.receipt})` : ""} towards your stay. Thank you.`,
+            text: `Dear ${name}, we received ${formatMoney(context.payment?.cents ?? 0)}${proofOf(context.payment)} towards your stay. Thank you.`,
           },
           { type: "facts", rows: [["Booking", context.reference], ["Stay", stayShort], ...moneyFacts(context)] },
           {
@@ -374,7 +386,7 @@ function blocksFor(kind: MessageKind, context: MessageContext): { subject: strin
         blocks: [
           {
             type: "text",
-            text: `Dear ${name}, we received ${formatMoney(context.payment?.cents ?? 0)} from you${context.payment?.receipt ? ` (M-Pesa receipt ${context.payment.receipt})` : ""}, but it arrived after the time we could hold the room, and the room has since been taken by another guest. We are sorry.`,
+            text: `Dear ${name}, we received ${formatMoney(context.payment?.cents ?? 0)} from you${proofOf(context.payment)}, but it arrived after the time we could hold the room, and the room has since been taken by another guest. We are sorry.`,
           },
           {
             type: "text",

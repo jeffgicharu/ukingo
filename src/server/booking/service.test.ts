@@ -355,6 +355,14 @@ describe("paying", () => {
     expect(text.status).toBe("not_sent");
   });
 
+  it("names a test payment as one in the guest's email, and never as an M-Pesa receipt", async () => {
+    const booking = await confirmedBooking();
+    const [email] = await messagesFor(booking.id);
+    expect(email.kind).toBe("booking-confirmed");
+    expect(email.body).toMatch(/We received KSh 14,250 \(test payment TEST[A-Z0-9]+\)\./);
+    expect(email.body).not.toContain("M-Pesa receipt");
+  });
+
   it("records a confirmation once, however many times it arrives", async () => {
     const booking = await holdBooking(request(), monday);
     const { mpesa } = fakeMpesa();
