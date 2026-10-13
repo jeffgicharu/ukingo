@@ -50,6 +50,32 @@ export function readResult(code: string): Outcome {
   }
 }
 
+/**
+ * The same, for a result the site asked for rather than was sent. Asked while
+ * a prompt is still open, Safaricom has more than one way of saying so. So a
+ * code this site has never met settles nothing here: the confirmation will,
+ * or the site giving up.
+ */
+export function readAskedResult(code: string): Outcome | null {
+  const outcome = readResult(code);
+  return outcome.status === "failed" && outcome.failure === "other" ? null : outcome;
+}
+
+/** Safaricom's result code for a prompt the phone has not answered yet. */
+const STILL_OPEN = "4999";
+
+/**
+ * Reads Safaricom's reply to "what became of this prompt?". Until the guest
+ * answers, the reply is either an error or a result code that only means the
+ * prompt is still open. Neither is news.
+ */
+export function readQueryAnswer(ok: boolean, answer: Record<string, unknown>): PromptResult | null {
+  if (!ok || answer.ResultCode === undefined || answer.ResultCode === null) return null;
+  const code = String(answer.ResultCode);
+  if (code === STILL_OPEN) return null;
+  return { code, description: String(answer.ResultDesc ?? "") };
+}
+
 /** What to tell a guest whose payment did not go through, and what to do next. */
 export function failureMessage(failure: PaymentFailure | null): string {
   switch (failure) {
@@ -155,9 +181,7 @@ export function daraja(): Mpesa | null {
 
     async result(checkoutRequestId) {
       const { ok, answer } = await post("/mpesa/stkpushquery/v1/query", { CheckoutRequestID: checkoutRequestId });
-      // Until the prompt is answered, Safaricom replies with an error saying it is still being processed.
-      if (!ok || answer.ResultCode === undefined || answer.ResultCode === null) return null;
-      return { code: String(answer.ResultCode), description: String(answer.ResultDesc ?? "") };
+      return readQueryAnswer(ok, answer);
     },
   };
 }

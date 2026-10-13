@@ -27,7 +27,7 @@ import type { PaymentFailure, PaymentMethod } from "@/server/db/schema";
 import { env } from "@/server/env";
 import { tell } from "@/server/messages/tell";
 
-import { daraja, MPESA_LIMIT_CENTS, readResult, type Mpesa } from "./daraja";
+import { daraja, MPESA_LIMIT_CENTS, readAskedResult, type Mpesa } from "./daraja";
 
 export type Payment = typeof schema.payments.$inferSelect;
 
@@ -405,8 +405,8 @@ export async function checkPayment(
     } catch {
       // Safaricom could not be asked. The next check tries again.
     }
-    if (result) {
-      const outcome = readResult(result.code);
+    const outcome = result ? readAskedResult(result.code) : null;
+    if (result && outcome) {
       const settled = await settlePayment(
         paymentId,
         outcome.status === "paid" ? { status: "paid" } : { ...outcome, detail: result.description },

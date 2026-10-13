@@ -527,6 +527,27 @@ describe("when the confirmation never arrives", () => {
     expect((await fresh(booking.id)).status).toBe("held");
   });
 
+  it("keeps waiting while M-Pesa says the prompt is still open, and takes the payment when it lands", async () => {
+    const { booking, payment } = await pendingPayment();
+    // Safaricom's own way of saying "not yet", and a code the site has never met.
+    for (const [code, seconds] of [
+      ["4999", 20],
+      ["8888", 35],
+    ] as const) {
+      const { mpesa } = fakeMpesa({ result: { code, description: "The transaction is still under processing" } });
+      expect((await checkPayment(payment.id, after(seconds), mpesa))?.status).toBe("pending");
+    }
+    expect((await fresh(booking.id)).status).toBe("held");
+
+    const paid = await settlePayment(
+      payment.id,
+      { status: "paid", receipt: "SLOW1", paidShillings: 14_250 },
+      after(45),
+    );
+    expect(paid.payment.status).toBe("paid");
+    expect((await fresh(booking.id)).status).toBe("confirmed");
+  });
+
   it("gives up after five minutes of silence, and still believes M-Pesa if it speaks later", async () => {
     const { booking, payment } = await pendingPayment();
     const silent = fakeMpesa({ result: null });
