@@ -68,8 +68,8 @@ export function Photo({
 
   return (
     <picture>
-      <source type="image/avif" srcSet={set("avif")} sizes={fitted} />
-      <source type="image/webp" srcSet={set("webp")} sizes={fitted} />
+      {photo.formats.includes("avif") ? <source type="image/avif" srcSet={set("avif")} sizes={fitted} /> : null}
+      {photo.formats.includes("webp") ? <source type="image/webp" srcSet={set("webp")} sizes={fitted} /> : null}
       <img
         src={file(largest, "jpg")}
         srcSet={set("jpg")}

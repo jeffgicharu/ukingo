@@ -1,19 +1,18 @@
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import sharp from "sharp";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { copyHeight } from "@/photos/picture";
 import { fieldsOf, setupAction, SetupError, type SetupActionName } from "@/server/desk/setup";
 import { db, schema } from "@/server/db";
 import { NotAllowed, type Staff } from "@/server/staff/permissions";
 import { freshLodge } from "@/testing/lodge";
 
 import { forgetCatalogue, loadCatalogue, roomTypeBySlug } from "./catalogue";
-import { readPhotoFile } from "./photo-files";
-import { preparePhotoApart } from "./photo-preparing";
-import { preparePhoto } from "./photos";
+import { bareJpeg, checkCopies, jpegSize, keepPhoto, readPhotoFile, webpSize, type Copy } from "./photo-files";
 
 let folder: string;
 let owner: Staff;
@@ -21,32 +20,32 @@ let manager: Staff;
 let desk: Staff;
 let trainee: Staff;
 
-/** A photograph made for the test: a gradient, so every copy has something in it. */
-async function photograph(
-  width: number,
-  height: number,
-  options: { format?: "jpeg" | "png" | "webp"; orientation?: number; place?: boolean } = {},
-): Promise<Uint8Array> {
+/** One copy as a browser would make it: a gradient, so it has something in it. */
+async function copy(format: "jpg" | "webp", width: number, height = copyHeight(width), place = false) {
   const pixels = Buffer.alloc(width * height * 3);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const at = (y * width + x) * 3;
-      pixels[at] = (x * 255) / width;
-      pixels[at + 1] = (y * 255) / height;
-      pixels[at + 2] = 90;
-    }
+  for (let at = 0; at < pixels.length; at += 3) {
+    pixels[at] = ((at / 3) % width) % 256;
+    pixels[at + 1] = Math.floor(at / 3 / width) % 256;
+    pixels[at + 2] = 90;
   }
   let image = sharp(pixels, { raw: { width, height, channels: 3 } });
-  if (options.orientation || options.place) {
-    image = image.withMetadata({
-      ...(options.orientation ? { orientation: options.orientation } : {}),
-      // Where the photograph was taken, as a phone writes it.
-      ...(options.place ? { exif: { IFD3: { GPSLatitudeRef: "S", GPSLatitude: "0/1 3/1 0/1" } } } : {}),
-    });
-  }
-  const format = options.format ?? "jpeg";
-  return new Uint8Array(await image.toFormat(format).toBuffer());
+  // Where it was taken, as a phone writes it.
+  if (place) image = image.withMetadata({ exif: { IFD3: { GPSLatitudeRef: "S", GPSLatitude: "0/1 3/1 0/1" } } });
+  return new Uint8Array(await (format === "jpg" ? image.jpeg() : image.webp()).toBuffer());
 }
+
+/** Every copy of one photograph, as the form sends them. */
+async function copies(widths = [480, 800, 1200, 1600], webp = true): Promise<Copy[]> {
+  const all: Copy[] = [];
+  for (const width of widths) {
+    all.push({ format: "jpg", width, bytes: await copy("jpg", width) });
+    if (webp) all.push({ format: "webp", width, bytes: await copy("webp", width) });
+  }
+  return all;
+}
+
+const asFields = (list: Copy[]) =>
+  Object.fromEntries(list.map((one) => [`${one.format}-${one.width}`, new File([new Uint8Array(one.bytes)], "copy")]));
 
 async function saved(): Promise<string[]> {
   try {
@@ -74,8 +73,6 @@ async function change(name: SetupActionName, values: Record<string, string | Blo
   return action.apply(proposal, staff, new Date());
 }
 
-const file = (bytes: Uint8Array, name = "photo.jpg") => new File([new Uint8Array(bytes)], name);
-
 beforeAll(async () => {
   folder = await mkdtemp(path.join(tmpdir(), "ukingo-photos-"));
   process.env.MEDIA_DIR = folder;
@@ -95,106 +92,78 @@ beforeEach(async () => {
   trainee = await member("Training Manager", "reservations", true);
 });
 
-describe("checking a photograph before it goes up", () => {
-  it("refuses what is not a photograph the site can use, in words that say why", async () => {
-    await expect(preparePhoto(new Uint8Array(), "a")).rejects.toThrow("Choose a photograph to put up.");
-    await expect(preparePhoto(new TextEncoder().encode("not a picture at all"), "a")).rejects.toThrow(
-      "Choose a JPEG, PNG or WebP.",
+describe("reading a copy without an image library", () => {
+  it("finds the size of a JPEG and a WebP, and nothing in what is neither", async () => {
+    expect(jpegSize(await copy("jpg", 800))).toEqual({ width: 800, height: 600 });
+    expect(webpSize(await copy("webp", 480))).toEqual({ width: 480, height: 360 });
+    const lossless = new Uint8Array(
+      await sharp(await copy("jpg", 480))
+        .webp({ lossless: true })
+        .toBuffer(),
     );
-    await expect(preparePhoto(await photograph(800, 600), "a")).rejects.toThrow(
-      "That photograph is 800 pixels wide. Choose one at least 1,200 wide",
-    );
-    await expect(preparePhoto(await photograph(1200, 1600), "a")).rejects.toThrow("too tall for its frame");
-    await expect(preparePhoto(await photograph(2400, 1000), "a")).rejects.toThrow("too long and thin");
-    expect(await saved()).toEqual([]);
+    expect(webpSize(lossless)).toEqual({ width: 480, height: 360 });
+
+    expect(jpegSize(await copy("webp", 480))).toBeNull();
+    expect(webpSize(await copy("jpg", 480))).toBeNull();
+    expect(jpegSize(new TextEncoder().encode("<svg onload=alert(1)>"))).toBeNull();
+    expect(webpSize(new Uint8Array(40))).toBeNull();
   });
 
-  it("saves four widths in three formats, with nothing in them but the picture", async () => {
-    const prepared = await preparePhoto(await photograph(2000, 1500, { place: true }), "forest-cottage-main");
+  it("takes out of a JPEG where it was taken, and leaves the picture", async () => {
+    const withPlace = await copy("jpg", 800, 600, true);
+    expect((await sharp(withPlace).metadata()).exif).toBeDefined();
 
-    expect(prepared).toMatchObject({ width: 1600, height: 1200, widths: [480, 800, 1200, 1600] });
-    expect(prepared.file).toMatch(/^forest-cottage-main-[0-9a-f]{10}$/);
-    expect(prepared.colour).toMatch(/^#[0-9a-f]{6}$/);
-    const names = await saved();
-    expect(names).toHaveLength(12);
-    for (const width of [480, 800, 1200, 1600]) {
-      for (const format of ["avif", "webp", "jpg"]) expect(names).toContain(`${prepared.file}-${width}.${format}`);
-    }
-
-    const largest = await readPhotoFile(`${prepared.file}-1600.jpg`);
-    expect(largest?.type).toBe("image/jpeg");
-    const meta = await sharp(largest!.body).metadata();
-    expect(meta.width).toBe(1600);
+    const bare = bareJpeg(withPlace);
+    const meta = await sharp(bare).metadata();
     expect(meta.exif).toBeUndefined();
-  });
-
-  it("turns a photograph the right way up when the phone was held on its side", async () => {
-    // Saved 1500 wide and 2000 tall, with a note that it is to be turned a quarter.
-    const prepared = await preparePhoto(await photograph(1500, 2000, { orientation: 6 }), "a");
-    expect(prepared).toMatchObject({ width: 1600, height: 1200 });
-    const copy = await readPhotoFile(`${prepared.file}-800.webp`);
-    const meta = await sharp(copy!.body).metadata();
     expect([meta.width, meta.height]).toEqual([800, 600]);
-  });
-
-  it("never saves a copy wider than the photograph", async () => {
-    const prepared = await preparePhoto(await photograph(1300, 975, { format: "png" }), "a");
-    expect(prepared).toMatchObject({ width: 1300, height: 975, widths: [480, 800, 1200] });
-    expect(await saved()).toHaveLength(9);
-  });
-
-  it("trims a photograph of another shape to the 4:3 frame the site shows it in", async () => {
-    // 16:9, as many cameras take them: the sides go.
-    const wide = await preparePhoto(await photograph(2400, 1350), "wide");
-    expect(wide).toMatchObject({ width: 1600, height: 1200 });
-    const copy = await sharp((await readPhotoFile(`${wide.file}-1200.jpg`))!.body).metadata();
-    expect([copy.width, copy.height]).toEqual([1200, 900]);
-
-    // 5:4: a strip goes from the top and the bottom.
-    expect(await preparePhoto(await photograph(1500, 1200), "square")).toMatchObject({ width: 1500, height: 1125 });
-
-    // Wide enough as it came, but not once trimmed.
-    await expect(preparePhoto(await photograph(1500, 800), "a")).rejects.toThrow(
-      "That photograph is 1,067 pixels wide once trimmed to the site's 4:3 frame.",
-    );
-  });
-
-  it("serves only copies by their exact names", async () => {
-    const prepared = await preparePhoto(await photograph(1600, 1200, { format: "webp" }), "a");
-    expect((await readPhotoFile(`${prepared.file}-480.avif`))?.type).toBe("image/avif");
-    expect(await readPhotoFile(`${prepared.file}-481.avif`)).toBeNull();
-    expect(await readPhotoFile("../env")).toBeNull();
-    expect(await readPhotoFile(`..%2F${prepared.file}-480.avif`)).toBeNull();
-    expect(await readPhotoFile(`${prepared.file}-480.png`)).toBeNull();
+    // Still the same picture.
+    const [before, after] = await Promise.all([withPlace, bare].map((bytes) => sharp(bytes).raw().toBuffer()));
+    expect(after.equals(before)).toBe(true);
   });
 });
 
-describe("preparing a photograph in a process of its own", () => {
-  // The tool as the server runs it, here from its source.
-  const tool = [process.execPath, "--import", "tsx", "src/tools/prepare-photo.ts"];
+describe("checking the copies a browser made", () => {
+  it("accepts a JPEG at each width from the smallest up, with or without a WebP beside every one", async () => {
+    expect(checkCopies(await copies())).toHaveLength(8);
+    expect(checkCopies(await copies([480, 800, 1200], false))).toHaveLength(3);
+  });
 
-  it("brings back the copies, or the refusal in words", async () => {
-    const made = await preparePhotoApart(await photograph(1600, 1200), "forest-cottage-inside", tool);
-    expect(made).toMatchObject({ width: 1600, height: 1200, widths: [480, 800, 1200, 1600] });
-    expect(await saved()).toHaveLength(12);
+  it("refuses a set with a width missing, or WebPs beside only some", async () => {
+    const whole = "The photograph did not arrive whole. Please choose it and put it up again.";
+    expect(() => checkCopies([])).toThrow(whole);
+    const all = await copies();
+    expect(() => checkCopies(all.filter((one) => one.width !== 800))).toThrow(whole);
+    expect(() => checkCopies(all.filter((one) => !(one.format === "webp" && one.width === 1600)))).toThrow(whole);
+    expect(() => checkCopies(all.filter((one) => one.width === 480))).toThrow(whole);
+  });
 
-    await expect(preparePhotoApart(await photograph(800, 600), "a", tool)).rejects.toThrow("at least 1,200 wide");
-    expect(await saved()).toHaveLength(12);
-  }, 60_000);
+  it("refuses a copy that is not what it claims, or not the size it should be", async () => {
+    const all = await copies([480, 800, 1200], false);
+    const wrong = "The photograph was not made ready as this site needs. Please try again in another browser.";
+    // A WebP sent as a JPEG.
+    const swapped = all.map((one) => (one.width === 800 ? { ...one, bytes: Buffer.from(all[0].bytes) } : one));
+    expect(() => checkCopies(swapped)).toThrow(wrong);
+    // The right kind of file, the wrong shape.
+    const squashed = await copy("jpg", 800, 500);
+    expect(() => checkCopies(all.map((one) => (one.width === 800 ? { ...one, bytes: squashed } : one)))).toThrow(wrong);
+    // Not a picture at all.
+    const script = new TextEncoder().encode("<script>alert(1)</script>");
+    expect(() => checkCopies(all.map((one) => (one.width === 480 ? { ...one, bytes: script } : one)))).toThrow(wrong);
+  });
 
-  it("says so plainly, and leaves no half-made copies, when the work stops without an answer", async () => {
-    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
-    const dir = path.join(folder, "photos");
-    await mkdir(dir, { recursive: true });
-    // As if the tool had been stopped part way through the third copy.
-    for (const left of ["a-0123456789-480.avif", "a-0123456789-480.webp", "a-0123456789-480.jpg.part"]) {
-      await writeFile(path.join(dir, left), "x");
-    }
-    await expect(
-      preparePhotoApart(await photograph(1600, 1200), "a", [process.execPath, "-e", "process.exit(3)"]),
-    ).rejects.toThrow("That photograph could not be prepared. Save a smaller copy of it and try again.");
-    expect(await saved()).toEqual([]);
-    quiet.mockRestore();
+  it("keeps the copies under a new name, and serves only copies by their exact names", async () => {
+    const kept = await keepPhoto("forest-cottage-main", await copies());
+    expect(kept).toMatchObject({ width: 1600, height: 1200, widths: [480, 800, 1200, 1600], formats: ["webp", "jpg"] });
+    expect(kept.file).toMatch(/^forest-cottage-main-[0-9a-f]{10}$/);
+    expect(await saved()).toHaveLength(8);
+
+    expect((await readPhotoFile(`${kept.file}-480.webp`))?.type).toBe("image/webp");
+    expect((await readPhotoFile(`${kept.file}-1600.jpg`))?.type).toBe("image/jpeg");
+    expect(await readPhotoFile(`${kept.file}-1600.avif`)).toBeNull();
+    expect(await readPhotoFile(`${kept.file}-481.jpg`)).toBeNull();
+    expect(await readPhotoFile("../env")).toBeNull();
+    expect(await readPhotoFile(`..%2F${kept.file}-480.jpg`)).toBeNull();
   });
 });
 
@@ -202,44 +171,44 @@ describe("putting up the photographs of a room", () => {
   const described = "The cottage from the lawn, smoke rising from the chimney";
 
   it("shows a new photograph in its place on the site, and takes the one it replaced off the server", async () => {
-    const lodge = await loadCatalogue();
-    const cottage = roomTypeBySlug(lodge, "forest-cottage")!;
+    const cottage = roomTypeBySlug(await loadCatalogue(), "forest-cottage")!;
     expect(cottage.photos.main?.base).toBe("/photos/forest-cottage");
+    const where = { type: String(cottage.id), place: "main", description: described };
 
-    const said = await change(
-      "photo-add",
-      { type: String(cottage.id), place: "main", description: described, photo: file(await photograph(2000, 1500)) },
-      manager,
-    );
+    const said = await change("photo-add", { ...where, colour: "#3A4B5C", ...asFields(await copies()) }, manager);
     expect(said).toBe("The new main photograph of Forest Cottage is up on the site.");
 
     forgetCatalogue();
     const first = roomTypeBySlug(await loadCatalogue(), "forest-cottage")!.photos.main!;
+    expect(first).toMatchObject({
+      width: 1600,
+      height: 1200,
+      formats: ["webp", "jpg"],
+      colour: "#3a4b5c",
+      description: described,
+      version: "",
+    });
     expect(first.base).toMatch(/^\/uploads\/forest-cottage-main-[0-9a-f]{10}$/);
-    expect(first.description).toBe(described);
-    expect(first.version).toBe("");
     // The other two places keep the photographs the site was built with.
     expect(roomTypeBySlug(await loadCatalogue(), "forest-cottage")!.photos.inside?.base).toBe(
       "/photos/forest-cottage-inside",
     );
 
-    await change(
-      "photo-add",
-      { type: String(cottage.id), place: "main", description: described, photo: file(await photograph(1800, 1200)) },
-      owner,
-    );
+    // From a browser that cannot make a WebP, and with no colour said.
+    await change("photo-add", { ...where, ...asFields(await copies([480, 800, 1200], false)) }, owner);
     forgetCatalogue();
     const second = roomTypeBySlug(await loadCatalogue(), "forest-cottage")!.photos.main!;
-    expect(second.base).not.toBe(first.base);
+    expect(second).toMatchObject({ width: 1200, height: 900, formats: ["jpg"], widths: [480, 800, 1200] });
+    expect(second.colour).toMatch(/^#[0-9a-f]{6}$/);
     const names = await saved();
-    expect(names).toHaveLength(12);
+    expect(names).toHaveLength(3);
     expect(names.every((name) => name.startsWith(second.base.slice("/uploads/".length)))).toBe(true);
   });
 
   it("changes a description, and puts back the original with nothing left behind", async () => {
-    const cottage = roomTypeBySlug(await loadCatalogue(), "mountain-tent")!;
-    const where = { type: String(cottage.id), place: "detail" };
-    await change("photo-add", { ...where, description: described, photo: file(await photograph(2000, 1500)) }, owner);
+    const tent = roomTypeBySlug(await loadCatalogue(), "mountain-tent")!;
+    const where = { type: String(tent.id), place: "detail" };
+    await change("photo-add", { ...where, description: described, ...asFields(await copies()) }, owner);
 
     expect(await change("photo-describe", { ...where, description: "The copper bath at first light" }, owner)).toBe(
       "The description of the detail photograph of Mountain Tent is saved.",
@@ -262,37 +231,30 @@ describe("putting up the photographs of a room", () => {
     );
   });
 
-  it("asks for a description and a photograph, and saves nothing without them", async () => {
+  it("says what is needed when the form arrives without copies, and saves nothing", async () => {
     const cottage = roomTypeBySlug(await loadCatalogue(), "forest-cottage")!;
-    const where = { type: String(cottage.id), place: "inside" };
+    const where = { type: String(cottage.id), place: "inside", description: described };
+    // A browser with scripts switched off sends the photograph as it was chosen.
     await expect(
-      change("photo-add", { ...where, description: described, photo: file(new Uint8Array()) }, owner),
-    ).rejects.toThrow("Choose a photograph to put up.");
+      change("photo-add", { ...where, photo: new File([new Uint8Array(await copy("jpg", 2000))], "a.jpg") }, owner),
+    ).rejects.toThrow("Putting up a photograph needs scripts switched on in this browser");
+    await expect(change("photo-add", where, owner)).rejects.toThrow("Choose a photograph to put up.");
     await expect(
-      change("photo-add", { ...where, description: "Bed", photo: file(await photograph(2000, 1500)) }, owner),
+      change("photo-add", { ...where, description: "Bed", ...asFields(await copies()) }, owner),
     ).rejects.toBeInstanceOf(SetupError);
+    await expect(change("photo-add", { ...where, place: "roof", ...asFields(await copies()) }, owner)).rejects.toThrow(
+      "Choose where the photograph goes.",
+    );
     await expect(
-      change("photo-add", { ...where, description: described, photo: file(await photograph(900, 600)) }, owner),
-    ).rejects.toThrow("at least 1,200 wide");
-    await expect(
-      change(
-        "photo-add",
-        { type: String(cottage.id), place: "roof", description: described, photo: file(await photograph(2000, 1500)) },
-        owner,
-      ),
-    ).rejects.toThrow("Choose where the photograph goes.");
+      change("photo-add", { ...where, ...asFields((await copies()).filter((one) => one.width !== 1200)) }, owner),
+    ).rejects.toThrow("did not arrive whole");
     expect(await saved()).toEqual([]);
     expect(await db().select().from(schema.roomPhotos)).toEqual([]);
   });
 
   it("is refused to the front desk and to training accounts, where the data is changed", async () => {
     const cottage = roomTypeBySlug(await loadCatalogue(), "forest-cottage")!;
-    const values = {
-      type: String(cottage.id),
-      place: "main",
-      description: described,
-      photo: file(await photograph(2000, 1500)),
-    };
+    const values = { type: String(cottage.id), place: "main", description: described, ...asFields(await copies()) };
     await expect(change("photo-add", values, desk)).rejects.toBeInstanceOf(NotAllowed);
     await expect(change("photo-add", values, trainee)).rejects.toThrow(/Training accounts/);
     await expect(change("photo-remove", { type: String(cottage.id), place: "main" }, trainee)).rejects.toBeInstanceOf(

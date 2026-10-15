@@ -2,8 +2,8 @@ import { asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 
-import { BusyButton } from "@/components/desk/busy-button";
 import { DeskPage, Empty, Panel, Tabs } from "@/components/desk/page";
+import { PhotoUpload } from "@/components/desk/photo-upload";
 import { proposed, ReviewPanel, waitingChange } from "@/components/desk/review";
 import { Photo } from "@/components/site/photo";
 import { type Day, addDays, lodgeDay } from "@/lib/dates";
@@ -351,11 +351,10 @@ export default async function RoomsPage({ searchParams }: PageProps<"/desk/rooms
                                   <summary className="cursor-pointer px-3 py-2.5 text-sm font-semibold">
                                     {picture ? "Put up a different photograph" : "Put up a photograph"}
                                   </summary>
-                                  <form
+                                  <PhotoUpload
                                     action="/desk/setup/act"
-                                    method="post"
-                                    encType="multipart/form-data"
                                     className="space-y-3 border-t border-rule px-3 py-3"
+                                    buttonClassName={`${smallButton} button-night`}
                                   >
                                     <Hidden back={back} action="photo-add" />
                                     <input type="hidden" name="type" value={type.id} />
@@ -366,14 +365,14 @@ export default async function RoomsPage({ searchParams }: PageProps<"/desk/rooms
                                         name="photo"
                                         type="file"
                                         required
-                                        accept="image/jpeg,image/png,image/webp"
+                                        accept="image/*"
                                         className="block w-full min-w-0 text-sm file:mr-3 file:min-h-10 file:rounded-full file:border file:border-rule file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold"
                                       />
                                     </label>
                                     <p className="text-sm text-ink-faint">
-                                      JPEG, PNG or WebP, up to 10 MB, at least 1,200 pixels wide and wider than it is
-                                      tall. It is trimmed to the 4:3 frame the site shows it in, keeping the middle.
-                                      Where it was taken, and anything else stored in the file, is removed.
+                                      At least 1,200 pixels wide and wider than it is tall. It is trimmed to the 4:3
+                                      frame the site shows it in, keeping the middle, and made ready in this browser:
+                                      the original, and where it was taken, are not sent.
                                     </p>
                                     <label className="block">
                                       <span className="field-label">What it shows, for someone who cannot see it</span>
@@ -387,10 +386,7 @@ export default async function RoomsPage({ searchParams }: PageProps<"/desk/rooms
                                         className="field"
                                       />
                                     </label>
-                                    <BusyButton busy="Preparing it…" className={`${smallButton} button-night`}>
-                                      Put it up
-                                    </BusyButton>
-                                  </form>
+                                  </PhotoUpload>
                                 </details>
                               </div>
                             ) : null}

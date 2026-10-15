@@ -1,8 +1,7 @@
 // Builds the command-line tools that run on the server beside the site:
 // the migrator, the seeder, the release check, the background jobs, the tool
 // that adds the first member of staff, the one that rewrites a training
-// lodge's books, the one that sends a trouble report by hand and the one
-// that prepares a photograph put up from the back office.
+// lodge's books and the one that sends a trouble report by hand.
 // Each becomes one self-contained file in dist/tools, so the server needs
 // nothing installed to run them.
 
@@ -19,7 +18,6 @@ await build({
     staff: "src/tools/staff.ts",
     training: "src/tools/training.ts",
     alert: "src/tools/alert.ts",
-    "prepare-photo": "src/tools/prepare-photo.ts",
   },
   outdir: "dist/tools",
   outExtension: { ".js": ".mjs" },
@@ -30,10 +28,8 @@ await build({
   sourcemap: false,
   legalComments: "none",
   logLevel: "info",
-  // pg tries an optional native driver that is not used here. The image
-  // library is native too: it is loaded from the site's own packages, so the
-  // release check proves the site can load it.
-  external: ["pg-native", "sharp"],
+  // pg tries an optional native driver that is not used here.
+  external: ["pg-native"],
   define: {
     "process.env.RELEASE": JSON.stringify(release),
   },

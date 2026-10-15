@@ -5,8 +5,8 @@
 //
 //   node check-release.mjs --base http://127.0.0.1:8201 --release <commit>
 
-import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 type Failure = { path: string; reason: string };
 
@@ -191,7 +191,7 @@ async function main(): Promise<void> {
 
   await policyHolds("/");
   await policyHolds("/rooms/forest-cottage");
-  await photographsCanBePrepared();
+  await photographsCanBeKept();
 
   // The stylesheet and scripts the home page asks for must be part of the release.
   const assets = [
@@ -233,28 +233,24 @@ async function policyHolds(path: string): Promise<void> {
 }
 
 /**
- * Photographs put up from the back office can be prepared on this server: the
- * tool beside this one loads the image library, writes every format the site
- * serves into the folder kept for them, and removes what it wrote.
+ * Photographs put up from the back office can be kept: the folder for them
+ * is named in the settings, and the site, which this check runs as, can write
+ * to it.
  */
-async function photographsCanBePrepared(): Promise<void> {
+async function photographsCanBeKept(): Promise<void> {
   checked++;
-  const tool = fileURLToPath(new URL("./prepare-photo.mjs", import.meta.url));
-  const run = spawnSync(process.execPath, ["--max-old-space-size=96", tool, "--check"], {
-    encoding: "utf8",
-    timeout: 90_000,
-  });
-  let answer: { ok?: boolean; message?: string; photo?: { widths?: number[] } } = {};
-  try {
-    answer = JSON.parse(run.stdout.trim().split("\n").pop() ?? "");
-  } catch {
-    // Said nothing readable; reported below.
+  const media = process.env.MEDIA_DIR;
+  if (!media) {
+    failures.push({ path: "(photographs)", reason: "MEDIA_DIR is not set, so none can be put up" });
+    return;
   }
-  if (!answer.ok || answer.photo?.widths?.length !== 4) {
-    const why =
-      answer.message ??
-      (run.stderr.trim().split("\n").slice(0, 3).join(" ") || `ended with ${run.signal ?? run.status}`);
-    failures.push({ path: "(photographs)", reason: `cannot be prepared on this server: ${why}` });
+  const trial = path.join(media, "photos", `release-check-${process.pid}.part`);
+  try {
+    await mkdir(path.dirname(trial), { recursive: true });
+    await writeFile(trial, "release check");
+    await rm(trial);
+  } catch (error) {
+    failures.push({ path: "(photographs)", reason: `cannot be kept in ${media}: ${String(error)}` });
   }
 }
 

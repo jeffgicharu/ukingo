@@ -102,6 +102,8 @@ export const roomPhotos = pgTable(
     width: integer("width").notNull(),
     height: integer("height").notNull(),
     widths: integer("widths").array().notNull(),
+    /** "jpg", and "webp" where the browser that sent it could make one. */
+    formats: text("formats").array().notNull(),
     colour: text("colour").notNull(),
     description: text("description").notNull(),
     addedBy: integer("added_by").references(() => staff.id),
