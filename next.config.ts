@@ -36,6 +36,12 @@ const nextConfig: NextConfig = {
 
   serverExternalPackages: ["pg", "pg-boss"],
 
+  // The public folder is shipped whole beside the server. Code that reads
+  // photographs from disk would otherwise have copies of it traced in as well.
+  outputFileTracingExcludes: {
+    "/**": ["public/**/*"],
+  },
+
   // Each photograph's address ends in a stamp that changes when the photograph
   // does, so a browser may keep its copy for a year and never ask again.
   async headers() {

@@ -85,9 +85,10 @@ jobs:
         run: |
           mkdir "$RUNNER_TEMP/release"
           cp -a .next/standalone/. "$RUNNER_TEMP/release/"
-          mkdir -p "$RUNNER_TEMP/release/.next"
-          cp -a .next/static "$RUNNER_TEMP/release/.next/static"
-          cp -a public "$RUNNER_TEMP/release/public"
+          # Copied into place, never inside a folder the server's build already made.
+          mkdir -p "$RUNNER_TEMP/release/.next/static" "$RUNNER_TEMP/release/public"
+          cp -a .next/static/. "$RUNNER_TEMP/release/.next/static/"
+          cp -a public/. "$RUNNER_TEMP/release/public/"
           cp -a dist/tools "$RUNNER_TEMP/release/tools"
           cp -a migrations "$RUNNER_TEMP/release/migrations"
           echo "$GITHUB_SHA" > "$RUNNER_TEMP/release/REVISION"
