@@ -1,11 +1,14 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 
+import { BusyButton } from "@/components/desk/busy-button";
 import { DeskPage, Empty, Panel, Tabs } from "@/components/desk/page";
 import { proposed, ReviewPanel, waitingChange } from "@/components/desk/review";
+import { Photo } from "@/components/site/photo";
 import { type Day, addDays, lodgeDay } from "@/lib/dates";
-import { formatDay, plural } from "@/lib/format";
+import { formatDay, formatMoment, plural } from "@/lib/format";
+import { builtIn, builtInName, photographOf, PLACE_NAMES, PLACES, roomPictures } from "@/photos/picture";
 import { clock } from "@/server/clock";
 import { db, schema } from "@/server/db";
 import { may } from "@/server/staff/permissions";
@@ -14,7 +17,13 @@ import { requireStaff } from "@/server/staff/sessions";
 export const metadata: Metadata = { title: "Rooms and prices" };
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? "";
-const TABS = { rooms: "Rooms", prices: "Prices", seasons: "Seasons and shortest stays", meals: "Meals and extras" };
+const TABS = {
+  rooms: "Rooms",
+  photos: "Photographs",
+  prices: "Prices",
+  seasons: "Seasons and shortest stays",
+  meals: "Meals and extras",
+};
 type Tab = keyof typeof TABS;
 
 const field = "field min-h-10 py-2";
@@ -50,6 +59,13 @@ export default async function RoomsPage({ searchParams }: PageProps<"/desk/rooms
   const stayRules = await db().select().from(schema.stayRules);
   const plans = await db().select().from(schema.mealPlans).orderBy(asc(schema.mealPlans.position));
   const extras = await db().select().from(schema.extras).orderBy(asc(schema.extras.position));
+  const photoRows =
+    tab === "photos"
+      ? await db()
+          .select({ photo: schema.roomPhotos, by: schema.staff.name })
+          .from(schema.roomPhotos)
+          .leftJoin(schema.staff, eq(schema.staff.id, schema.roomPhotos.addedBy))
+      : [];
 
   // A change being reviewed keeps what was typed in the form, in case it needs one more correction.
   const typedRates = proposed<{ rates: [number, number, number, number][] }>(waiting, "prices");
@@ -241,6 +257,152 @@ export default async function RoomsPage({ searchParams }: PageProps<"/desk/rooms
                 );
               })
           : null}
+
+        {tab === "photos" ? (
+          <>
+            <p className="max-w-3xl text-ink-soft">
+              Each kind of room shows three photographs. The main one is on the home page, the list of rooms and at the
+              top of its own page. The other two sit beside it on its own page.
+            </p>
+            {types
+              .filter((type) => type.active)
+              .map((type) => {
+                const own = photoRows.filter((row) => row.photo.roomTypeId === type.id);
+                const pictures = roomPictures(
+                  type.slug,
+                  own.map((row) => row.photo),
+                );
+                return (
+                  <Panel key={type.id} title={type.name}>
+                    <ul className="grid gap-x-6 gap-y-8 px-4 py-5 sm:px-5 md:grid-cols-3">
+                      {PLACES.map((place) => {
+                        const picture = pictures[place];
+                        const added = own.find((row) => row.photo.place === place);
+                        const original = builtIn(builtInName(type.slug, place));
+                        const describedAs = photographOf(place, type.name).replace(/^t/, "T");
+                        return (
+                          <li key={place} className="flex min-w-0 flex-col">
+                            <h3 className="field-label">{PLACE_NAMES[place]}</h3>
+                            <div className="overflow-hidden rounded-lg">
+                              <Photo
+                                picture={picture}
+                                alt={describedAs}
+                                sizes="(min-width: 80rem) 22rem, (min-width: 48rem) 30vw, 100vw"
+                                className="aspect-4/3 w-full"
+                              />
+                            </div>
+                            <p className="mt-2 text-sm text-ink-faint">
+                              {added
+                                ? `Put up by ${added.by ?? "a member of staff"}, ${formatMoment(added.photo.addedAt)}.`
+                                : picture
+                                  ? "The photograph the site was built with."
+                                  : "No photograph yet. The site shows a plain panel here."}
+                            </p>
+
+                            {added && canEdit ? (
+                              <form action="/desk/setup/act" method="post" className="mt-3">
+                                <Hidden back={back} action="photo-describe" />
+                                <input type="hidden" name="type" value={type.id} />
+                                <input type="hidden" name="place" value={place} />
+                                <label className="block">
+                                  <span className="field-label">What it shows, for someone who cannot see it</span>
+                                  <textarea
+                                    name="description"
+                                    required
+                                    minLength={10}
+                                    maxLength={200}
+                                    rows={3}
+                                    defaultValue={added.photo.description}
+                                    className="field"
+                                  />
+                                </label>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  <button type="submit" className={`${smallButton} button-line`}>
+                                    Save the description
+                                  </button>
+                                  {/* Sends the small form below, which says what this button does. */}
+                                  <button
+                                    type="submit"
+                                    form={`remove-${type.id}-${place}`}
+                                    className={`${smallButton} button-line`}
+                                  >
+                                    {original ? "Put back the original" : "Take it down"}
+                                  </button>
+                                </div>
+                              </form>
+                            ) : picture?.description ? (
+                              <p className="mt-1 text-sm">
+                                <span className="text-ink-faint">Described as: </span>
+                                {picture.description}
+                              </p>
+                            ) : null}
+                            {added && canEdit ? (
+                              <form id={`remove-${type.id}-${place}`} action="/desk/setup/act" method="post" hidden>
+                                <Hidden back={back} action="photo-remove" />
+                                <input type="hidden" name="type" value={type.id} />
+                                <input type="hidden" name="place" value={place} />
+                              </form>
+                            ) : null}
+
+                            {canEdit ? (
+                              // At the foot of its column, so the three line up whatever is written above them.
+                              <div className="mt-auto pt-3">
+                                <details className="rounded-lg border border-rule">
+                                  <summary className="cursor-pointer px-3 py-2.5 text-sm font-semibold">
+                                    {picture ? "Put up a different photograph" : "Put up a photograph"}
+                                  </summary>
+                                  <form
+                                    action="/desk/setup/act"
+                                    method="post"
+                                    encType="multipart/form-data"
+                                    className="space-y-3 border-t border-rule px-3 py-3"
+                                  >
+                                    <Hidden back={back} action="photo-add" />
+                                    <input type="hidden" name="type" value={type.id} />
+                                    <input type="hidden" name="place" value={place} />
+                                    <label className="block">
+                                      <span className="field-label">The photograph</span>
+                                      <input
+                                        name="photo"
+                                        type="file"
+                                        required
+                                        accept="image/jpeg,image/png,image/webp"
+                                        className="block w-full min-w-0 text-sm file:mr-3 file:min-h-10 file:rounded-full file:border file:border-rule file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold"
+                                      />
+                                    </label>
+                                    <p className="text-sm text-ink-faint">
+                                      JPEG, PNG or WebP, up to 10 MB, at least 1,200 pixels wide and wider than it is
+                                      tall. It is trimmed to the 4:3 frame the site shows it in, keeping the middle.
+                                      Where it was taken, and anything else stored in the file, is removed.
+                                    </p>
+                                    <label className="block">
+                                      <span className="field-label">What it shows, for someone who cannot see it</span>
+                                      <textarea
+                                        name="description"
+                                        required
+                                        minLength={10}
+                                        maxLength={200}
+                                        rows={3}
+                                        placeholder="A king bed facing a lit stone fireplace"
+                                        className="field"
+                                      />
+                                    </label>
+                                    <BusyButton busy="Preparing it…" className={`${smallButton} button-night`}>
+                                      Put it up
+                                    </BusyButton>
+                                  </form>
+                                </details>
+                              </div>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </Panel>
+                );
+              })}
+          </>
+        ) : null}
 
         {tab === "prices" ? (
           <Panel title="A night, in shillings, with breakfast">

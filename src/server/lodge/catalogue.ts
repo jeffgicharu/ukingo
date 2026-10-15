@@ -6,8 +6,9 @@
 import { asc, eq } from "drizzle-orm";
 
 import type { Day } from "@/lib/dates";
+import { roomPictures, type Picture } from "@/photos/picture";
 import { db, schema, type Queryable } from "@/server/db";
-import type { CancellationStep } from "@/server/db/schema";
+import type { CancellationStep, PhotoPlace } from "@/server/db/schema";
 
 export type Settings = {
   lodgeName: string;
@@ -43,6 +44,8 @@ export type RoomType = {
   rates: Record<string, { weeknight: number; weekend: number }>;
   /** The lowest price a night can cost, in cents. */
   fromCents: number;
+  /** Its three photographs. Null where it has none. */
+  photos: Record<PhotoPlace, Picture | null>;
 };
 
 export type Season = { code: string; name: string; isDefault: boolean };
@@ -86,6 +89,7 @@ export async function loadCatalogue(q: Queryable = db()): Promise<Catalogue> {
   const seasonRows = await q.select().from(schema.seasons).orderBy(asc(schema.seasons.position));
   const rangeRows = await q.select().from(schema.seasonDates);
   const rateRows = await q.select().from(schema.rates);
+  const photoRows = await q.select().from(schema.roomPhotos);
   const ruleRows = await q.select().from(schema.stayRules);
   const planRows = await q
     .select()
@@ -129,6 +133,10 @@ export async function loadCatalogue(q: Queryable = db()): Promise<Catalogue> {
         .map((room) => ({ id: room.id, name: room.name, position: room.position })),
       rates,
       fromCents: prices.length ? Math.min(...prices) : 0,
+      photos: roomPictures(
+        type.slug,
+        photoRows.filter((photo) => photo.roomTypeId === type.id),
+      ),
     };
   });
 

@@ -1,5 +1,4 @@
-import { descriptions } from "@/photos/descriptions";
-import { photos } from "@/photos/manifest";
+import { builtIn, pictureAddress, type Picture } from "@/photos/picture";
 
 import { Mark } from "./logo";
 
@@ -26,23 +25,26 @@ function sparing(sizes: string): string {
  * A photograph, served at the size the screen needs and in the newest format
  * the browser understands. `sizes` says how wide it is drawn at each screen
  * width, so a phone never downloads the laptop's copy. It is described by its
- * own line in the list of descriptions, or by `alt` where it has none.
+ * own description, or by `alt` where it has none.
+ *
+ * Give `name` for a photograph the site was built with, or `picture` for one
+ * that may have been put up from the back office (null when there is none).
  */
 export function Photo({
   name,
+  picture,
   alt,
   sizes,
   className = "",
   priority = false,
 }: {
-  name: string;
   alt: string;
   sizes: string;
   className?: string;
   /** For the one photograph at the top of a page: load it first. */
   priority?: boolean;
-}) {
-  const photo = photos[name];
+} & ({ name: string; picture?: never } | { picture: Picture | null; name?: never })) {
+  const photo = picture === undefined ? builtIn(name ?? "") : picture;
 
   if (!photo) {
     // No photograph yet. A quiet panel in the site's colours stands in.
@@ -57,9 +59,10 @@ export function Photo({
     );
   }
 
-  // The stamp changes when the photograph does, which lets browsers keep each copy for good.
-  const file = (width: number, format: string) => `/photos/${name}-${width}.${format}?v=${photo.stamp}`;
-  const set = (format: string) => photo.widths.map((width) => `${file(width, format)} ${width}w`).join(", ");
+  // Each address changes when the photograph does, which lets browsers keep each copy for good.
+  const file = (width: number, format: "avif" | "webp" | "jpg") => pictureAddress(photo, width, format);
+  const set = (format: "avif" | "webp" | "jpg") =>
+    photo.widths.map((width) => `${file(width, format)} ${width}w`).join(", ");
   const largest = photo.widths[photo.widths.length - 1];
   const fitted = sparing(sizes);
 
@@ -71,7 +74,7 @@ export function Photo({
         src={file(largest, "jpg")}
         srcSet={set("jpg")}
         sizes={fitted}
-        alt={descriptions[name] ?? alt}
+        alt={photo.description ?? alt}
         width={photo.width}
         height={photo.height}
         loading={priority ? "eager" : "lazy"}

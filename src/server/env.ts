@@ -106,6 +106,14 @@ export const env = {
     return optional("BACKUP_DIR");
   },
 
+  /**
+   * Where photographs put up from the back office are kept. Outside any one
+   * release, so they outlive it. A development copy keeps them in uploads/.
+   */
+  get mediaDir(): string | undefined {
+    return optional("MEDIA_DIR") ?? (process.env.NODE_ENV === "production" ? undefined : "uploads");
+  },
+
   /** Where trouble is reported. */
   get alertEmail(): string | undefined {
     return optional("ALERT_EMAIL");

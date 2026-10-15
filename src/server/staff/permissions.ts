@@ -110,7 +110,7 @@ export function must(staff: Staff, ability: Ability): void {
   }
   if (staff.training && SETUP.has(ability)) {
     throw new NotAllowed(
-      "Training accounts work bookings on sample data. They cannot change prices, rules, pages, settings or staff.",
+      "Training accounts work bookings on sample data. They cannot change rooms, photographs, prices, rules, pages, settings or staff.",
     );
   }
 }

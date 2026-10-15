@@ -117,7 +117,7 @@ export default async function StayPage({ searchParams }: PageProps<"/stay">) {
                     <a href={`/rooms/${type.slug}`} className="group block">
                       <div className="overflow-hidden rounded-xl">
                         <Photo
-                          name={type.slug}
+                          picture={type.photos.main}
                           alt={`${type.name} at Ukingo`}
                           sizes="(min-width: 64rem) 22vw, (min-width: 40rem) 45vw, 100vw"
                           className="aspect-4/3 w-full"
@@ -167,7 +167,7 @@ function OfferCard({
     >
       <div className={free ? "" : "opacity-60"}>
         <Photo
-          name={roomType.slug}
+          picture={roomType.photos.main}
           alt={`${roomType.name} at Ukingo`}
           sizes="(min-width: 48rem) 18rem, 100vw"
           className="aspect-16/9 size-full md:aspect-auto md:min-h-56"

@@ -86,6 +86,30 @@ export const rooms = pgTable("rooms", {
   active: boolean("active").notNull().default(true),
 });
 
+/** Where a kind of room shows a photograph: the main one, one inside, and a detail. */
+export type PhotoPlace = "main" | "inside" | "detail";
+
+/** A photograph staff put up in one of those places, in place of the one the site was built with. */
+export const roomPhotos = pgTable(
+  "room_photos",
+  {
+    roomTypeId: integer("room_type_id")
+      .notNull()
+      .references(() => roomTypes.id),
+    place: text("place").$type<PhotoPlace>().notNull(),
+    /** The name its copies are saved under: <file>-<width>.<avif|webp|jpg> */
+    file: text("file").notNull().unique(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    widths: integer("widths").array().notNull(),
+    colour: text("colour").notNull(),
+    description: text("description").notNull(),
+    addedBy: integer("added_by").references(() => staff.id),
+    addedAt: moment("added_at").notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.roomTypeId, table.place] })],
+);
+
 export const seasons = pgTable("seasons", {
   id: id(),
   code: text("code").notNull().unique(),

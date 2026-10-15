@@ -5,7 +5,9 @@
 # Run every night by ukingo-backup.timer, as root. It writes one dump, restores
 # that dump into a scratch database, checks the scratch database is the real
 # thing, and throws the scratch database away. A backup that has never been
-# restored is a hope, not a backup. Older dumps are then removed.
+# restored is a hope, not a backup. The photographs staff have put up are kept
+# outside the database, so a copy of them is made beside the dump, from the
+# same moment. Older dumps and copies are then removed.
 #
 #   ukingo-backup          tonight's backup and its restore check
 #
@@ -17,6 +19,7 @@ set -euo pipefail
 
 BASE=/var/www/ukingo.jeffgicharu.com
 DIR=$BASE/shared/backups
+MEDIA=$BASE/shared/media
 DB=ukingo
 SCRATCH=ukingo_restore_check
 KEEP=14
@@ -38,6 +41,14 @@ fail() {
 as_postgres pg_dump --format=custom --no-owner "$DB" > "$file.part" || fail "the database could not be dumped"
 mv "$file.part" "$file"
 chown ukingo:ukingo "$file"
+
+# The photographs the dump refers to. To bring them back: tar -C "$MEDIA" -xf photos-YYYYMMDD-HHMM.tar
+photos="$DIR/photos-$stamp.tar"
+if [[ -d "$MEDIA/photos" ]]; then
+    tar -C "$MEDIA" -cf "$photos.part" photos || fail "the photographs could not be copied"
+    mv "$photos.part" "$photos"
+    chown ukingo:ukingo "$photos"
+fi
 
 # Restore it somewhere that is not the site.
 as_postgres dropdb --if-exists "$SCRATCH"
@@ -62,6 +73,8 @@ printf 'ok %s bookings=%s bytes=%s\n' "$stamp" "$bookings" "$size" > "$DIR/last-
 chown ukingo:ukingo "$DIR/last-check.txt"
 
 # Keep a fortnight.
-find "$DIR" -maxdepth 1 -name "$DB-*.dump" -printf '%T@ %p\n' | sort -rn | tail -n +$((KEEP + 1)) | cut -d' ' -f2- | xargs -r rm -f --
+for kept in "$DB-*.dump" "photos-*.tar"; do
+    find "$DIR" -maxdepth 1 -name "$kept" -printf '%T@ %p\n' | sort -rn | tail -n +$((KEEP + 1)) | cut -d' ' -f2- | xargs -r rm -f --
+done
 
 echo "Backed up and restored: $file, $bookings bookings, $size bytes."

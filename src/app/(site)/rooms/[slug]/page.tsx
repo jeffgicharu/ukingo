@@ -61,7 +61,7 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[slug]">) {
           <div className="mt-8 grid gap-3 md:grid-cols-[2fr_1fr] md:gap-4">
             <div className="overflow-hidden rounded-2xl">
               <Photo
-                name={type.slug}
+                picture={type.photos.main}
                 alt={`${type.name} at Ukingo`}
                 sizes="(min-width: 48rem) 62vw, 100vw"
                 priority
@@ -71,7 +71,7 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[slug]">) {
             <div className="grid grid-cols-2 gap-3 md:grid-cols-1 md:gap-4">
               <div className="overflow-hidden rounded-2xl">
                 <Photo
-                  name={`${type.slug}-inside`}
+                  picture={type.photos.inside}
                   alt={`Inside ${theRoom(type.name)}`}
                   sizes="(min-width: 48rem) 31vw, 50vw"
                   className="aspect-4/3 w-full"
@@ -79,7 +79,7 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[slug]">) {
               </div>
               <div className="overflow-hidden rounded-2xl">
                 <Photo
-                  name={`${type.slug}-detail`}
+                  picture={type.photos.detail}
                   alt={`A detail of ${theRoom(type.name)}`}
                   sizes="(min-width: 48rem) 31vw, 50vw"
                   className="aspect-4/3 w-full"
@@ -200,7 +200,7 @@ export default async function RoomPage({ params }: PageProps<"/rooms/[slug]">) {
                 <a href={`/rooms/${other.slug}`} className="group block">
                   <div className="overflow-hidden rounded-xl">
                     <Photo
-                      name={other.slug}
+                      picture={other.photos.main}
                       alt={`${other.name} at Ukingo`}
                       sizes="(min-width: 40rem) 30vw, 100vw"
                       className="aspect-4/3 w-full transition-transform duration-700 ease-settle group-hover:scale-[1.03]"

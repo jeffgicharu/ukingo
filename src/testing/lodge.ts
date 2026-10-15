@@ -12,7 +12,7 @@ export async function freshLodge(): Promise<Catalogue> {
     TRUNCATE settings, room_types, rooms, seasons, season_dates, rates, stay_rules, meal_plans, extras,
       staff, staff_sessions, sign_in_attempts, password_resets,
       guests, bookings, allocations, booking_nights, booking_charges, payments, refunds,
-      booking_events, booking_notes, messages, pages, questions, site_text, alerts
+      booking_events, booking_notes, messages, pages, questions, site_text, alerts, room_photos
     RESTART IDENTITY CASCADE
   `);
   await db().transaction((tx) => seedLodge(tx, { refresh: false, years: [2025, 2028] }));

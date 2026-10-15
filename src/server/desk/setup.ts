@@ -11,9 +11,11 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { type Day, addDays, isDay, lodgeDay } from "@/lib/dates";
 import { formatDay, formatMoney, plural } from "@/lib/format";
 import { db, schema, UNIQUE_VIOLATION, violates, type Queryable } from "@/server/db";
-import type { CancellationStep } from "@/server/db/schema";
+import { builtIn, builtInName, isPlace, photographOf } from "@/photos/picture";
+import type { CancellationStep, PhotoPlace } from "@/server/db/schema";
 import { forgetCatalogue } from "@/server/lodge/catalogue";
 import { forgetContent } from "@/server/lodge/content";
+import { MOST_PHOTO_BYTES, PhotoError, removePhotoFiles } from "@/server/lodge/photo-files";
 import { must, type Ability, type Staff } from "@/server/staff/permissions";
 
 /** Something wrong with what was typed, in words for the person who typed it. */
@@ -24,9 +26,9 @@ export class SetupError extends Error {
   }
 }
 
-type Fields = { text(name: string): string; has(name: string): boolean };
+type Fields = { text(name: string): string; has(name: string): boolean; file(name: string): File | null };
 
-/** Reads a form the way these definitions want it: trimmed text, and a test for ticked boxes. */
+/** Reads a form the way these definitions want it: trimmed text, a test for ticked boxes, and a chosen file. */
 export function fieldsOf(form: FormData): Fields {
   return {
     text: (name) => {
@@ -34,6 +36,11 @@ export function fieldsOf(form: FormData): Fields {
       return typeof value === "string" ? value.trim() : "";
     },
     has: (name) => form.get(name) !== null,
+    file: (name) => {
+      const value = form.get(name);
+      // A form sent with no file chosen still carries an empty one.
+      return value instanceof File && value.size > 0 ? value : null;
+    },
   };
 }
 
@@ -549,6 +556,115 @@ const roomChange = define<{ id: number; name: string; active: boolean }>({
   },
 });
 
+// ── Photographs of the rooms ──────────────────────────────────────────────
+
+async function kindOfRoom(fields: Fields): Promise<{ id: number; slug: string; name: string }> {
+  const id = whole(fields, "type", "The kind of room", { min: 1, max: 1_000_000 });
+  const [type] = await db()
+    .select({ id: schema.roomTypes.id, slug: schema.roomTypes.slug, name: schema.roomTypes.name })
+    .from(schema.roomTypes)
+    .where(eq(schema.roomTypes.id, id));
+  if (!type) throw new SetupError("Choose a kind of room.");
+  return type;
+}
+
+function placeOf(fields: Fields): PhotoPlace {
+  const place = fields.text("place");
+  if (!isPlace(place)) throw new SetupError("Choose where the photograph goes.");
+  return place;
+}
+
+const describing = (fields: Fields) => words(fields, "description", "What the photograph shows", { min: 10, max: 200 });
+
+const photoAdd = define<{
+  type: { id: number; slug: string; name: string };
+  place: PhotoPlace;
+  description: string;
+  photo: File;
+}>({
+  ability: "rates.edit",
+  async read(fields) {
+    const type = await kindOfRoom(fields);
+    const place = placeOf(fields);
+    const photo = fields.file("photo");
+    if (!photo) throw new SetupError("Choose a photograph to put up.");
+    if (photo.size > MOST_PHOTO_BYTES) {
+      throw new SetupError("That file is over 10 MB. Save a smaller copy of it and try again.");
+    }
+    return { type, place, description: describing(fields), photo };
+  },
+  async apply({ type, place, description, photo }, staff) {
+    must(staff, "rates.edit");
+    // The image library is loaded only here, where it is needed.
+    const { preparePhoto } = await import("@/server/lodge/photos");
+    let prepared;
+    try {
+      prepared = await preparePhoto(new Uint8Array(await photo.arrayBuffer()), `${type.slug}-${place}`);
+    } catch (error) {
+      if (error instanceof PhotoError) throw new SetupError(error.message);
+      throw error;
+    }
+
+    let before: string | undefined;
+    try {
+      before = await db().transaction(async (tx) => {
+        const [old] = await tx
+          .select({ file: schema.roomPhotos.file })
+          .from(schema.roomPhotos)
+          .where(and(eq(schema.roomPhotos.roomTypeId, type.id), eq(schema.roomPhotos.place, place)))
+          .for("update");
+        const values = { ...prepared, description, addedBy: staff.id, addedAt: new Date() };
+        await tx
+          .insert(schema.roomPhotos)
+          .values({ roomTypeId: type.id, place, ...values })
+          .onConflictDoUpdate({ target: [schema.roomPhotos.roomTypeId, schema.roomPhotos.place], set: values });
+        return old?.file;
+      });
+    } catch (error) {
+      await removePhotoFiles(prepared.file);
+      throw error;
+    }
+    // The photograph it replaced is no longer shown anywhere.
+    if (before) await removePhotoFiles(before);
+    forgetCatalogue();
+    return `The new ${place} photograph of ${type.name} is up on the site.`;
+  },
+});
+
+const photoDescribe = define<{ type: { id: number; name: string }; place: PhotoPlace; description: string }>({
+  ability: "rates.edit",
+  read: async (fields) => ({ type: await kindOfRoom(fields), place: placeOf(fields), description: describing(fields) }),
+  async apply({ type, place, description }, staff) {
+    must(staff, "rates.edit");
+    const changed = await db()
+      .update(schema.roomPhotos)
+      .set({ description })
+      .where(and(eq(schema.roomPhotos.roomTypeId, type.id), eq(schema.roomPhotos.place, place)))
+      .returning({ file: schema.roomPhotos.file });
+    if (changed.length === 0) throw new SetupError("That photograph has been taken down. Nothing was changed.");
+    forgetCatalogue();
+    return `The description of ${photographOf(place, type.name)} is saved.`;
+  },
+});
+
+const photoRemove = define<{ type: { id: number; slug: string; name: string }; place: PhotoPlace }>({
+  ability: "rates.edit",
+  read: async (fields) => ({ type: await kindOfRoom(fields), place: placeOf(fields) }),
+  async apply({ type, place }, staff) {
+    must(staff, "rates.edit");
+    const [removed] = await db()
+      .delete(schema.roomPhotos)
+      .where(and(eq(schema.roomPhotos.roomTypeId, type.id), eq(schema.roomPhotos.place, place)))
+      .returning({ file: schema.roomPhotos.file });
+    if (!removed) return "Nothing was changed.";
+    await removePhotoFiles(removed.file);
+    forgetCatalogue();
+    return builtIn(builtInName(type.slug, place))
+      ? `The ${place} photograph of ${type.name} is back to the one the site was built with.`
+      : `The ${place} photograph of ${type.name} is taken down.`;
+  },
+});
+
 // ── Booking rules ─────────────────────────────────────────────────────────
 
 type Rules = {
@@ -862,6 +978,9 @@ export const SETUP_ACTIONS = {
   "room-type": roomType,
   "room-add": roomAdd,
   "room-change": roomChange,
+  "photo-add": photoAdd,
+  "photo-describe": photoDescribe,
+  "photo-remove": photoRemove,
   rules,
   lodge,
   "words-draft": wordsDraft,

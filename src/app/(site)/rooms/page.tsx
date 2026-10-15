@@ -44,7 +44,7 @@ export default async function RoomsPage() {
                   aria-hidden="true"
                 >
                   <Photo
-                    name={type.slug}
+                    picture={type.photos.main}
                     alt={`${type.name} at Ukingo`}
                     sizes="(min-width: 48rem) 45vw, 100vw"
                     priority={index === 0}

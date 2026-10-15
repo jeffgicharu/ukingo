@@ -121,8 +121,8 @@ export default async function DeskLayout({ children }: LayoutProps<"/desk">) {
       <div className="min-w-0 flex-1">
         {staff.training ? (
           <p className="border-b border-ember-600/30 bg-ember-100 px-4 py-2 text-center text-sm text-ember-800 sm:px-6">
-            You are on a training account. The bookings are samples, and are put back as they were every night. Prices,
-            rules, pages and staff can be looked at and not changed.
+            You are on a training account. The bookings are samples, and are put back as they were every night. Rooms,
+            photographs, prices, rules, pages and staff can be looked at and not changed.
           </p>
         ) : null}
         {children}

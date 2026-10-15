@@ -68,7 +68,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
                 <a href={`/rooms/${type.slug}`} className="group block">
                   <div className="overflow-hidden rounded-2xl">
                     <Photo
-                      name={type.slug}
+                      picture={type.photos.main}
                       alt={`${type.name} at Ukingo`}
                       sizes="(min-width: 48rem) 45vw, 100vw"
                       className="aspect-4/3 w-full transition-transform duration-700 ease-settle group-hover:scale-[1.03]"

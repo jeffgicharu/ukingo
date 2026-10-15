@@ -75,6 +75,7 @@ DATABASE_URL=postgres://$APP_USER:$db_password@127.0.0.1:5432/$DB_NAME
 DATABASE_POOL=5
 APP_SECRET=$(openssl rand -hex 32)
 ALLOW_INDEXING=false
+MEDIA_DIR=$BASE/shared/media
 EOF
     umask 022
     chown "$APP_USER:$APP_USER" "$BASE/shared/env"

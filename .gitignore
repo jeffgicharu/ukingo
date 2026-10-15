@@ -44,5 +44,8 @@ next-env.d.ts
 # built command-line tools
 /dist
 
+# photographs put up from a development copy of the back office
+/uploads
+
 # screenshots taken while testing
 /shots
