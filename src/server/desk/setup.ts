@@ -16,6 +16,7 @@ import type { CancellationStep, PhotoPlace } from "@/server/db/schema";
 import { forgetCatalogue } from "@/server/lodge/catalogue";
 import { forgetContent } from "@/server/lodge/content";
 import { MOST_PHOTO_BYTES, PhotoError, removePhotoFiles } from "@/server/lodge/photo-files";
+import { preparePhotoApart } from "@/server/lodge/photo-preparing";
 import { must, type Ability, type Staff } from "@/server/staff/permissions";
 
 /** Something wrong with what was typed, in words for the person who typed it. */
@@ -595,11 +596,9 @@ const photoAdd = define<{
   },
   async apply({ type, place, description, photo }, staff) {
     must(staff, "rates.edit");
-    // The image library is loaded only here, where it is needed.
-    const { preparePhoto } = await import("@/server/lodge/photos");
     let prepared;
     try {
-      prepared = await preparePhoto(new Uint8Array(await photo.arrayBuffer()), `${type.slug}-${place}`);
+      prepared = await preparePhotoApart(new Uint8Array(await photo.arrayBuffer()), `${type.slug}-${place}`);
     } catch (error) {
       if (error instanceof PhotoError) throw new SetupError(error.message);
       throw error;

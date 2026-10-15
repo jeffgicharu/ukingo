@@ -11,7 +11,7 @@ import path from "node:path";
 
 import sharp, { type Metadata, type OutputInfo } from "sharp";
 
-import { MOST_PHOTO_BYTES, photoFolder, PhotoError, TYPES, WIDTHS } from "./photo-files";
+import { MOST_PHOTO_BYTES, photoFolder, PhotoError, WIDTHS } from "./photo-files";
 
 const FEWEST_PIXELS_WIDE = 1200;
 // Larger than any phone's camera. A file claiming more is refused before it is opened.
@@ -103,49 +103,47 @@ export async function preparePhoto(bytes: Uint8Array, name: string): Promise<Pre
       raw: { width: pixels.info.width, height: pixels.info.height, channels: pixels.info.channels },
     });
 
-  const widths = WIDTHS.filter((size) => size <= widest);
-  // A new name for every photograph put up, so no browser or cache can show an old one under it.
-  const file = `${name}-${randomBytes(5).toString("hex")}`;
-  const dir = photoFolder();
-  await mkdir(dir, { recursive: true });
-
-  const written: string[] = [];
-  try {
-    for (const size of widths) {
-      const sized = source().resize({ width: size });
-      const copies: [keyof typeof TYPES, Promise<Buffer>][] = [
-        // Phones draw the 800-wide copy at over twice the density of an ordinary screen,
-        // where saving it harder cannot be seen.
-        [
-          "avif",
-          sized
-            .clone()
-            .avif({ quality: size === 800 ? 42 : 50, effort: 0 })
-            .toBuffer(),
-        ],
-        ["webp", sized.clone().webp({ quality: 72, effort: 4 }).toBuffer()],
-        ["jpg", sized.clone().jpeg({ quality: 74, mozjpeg: true }).toBuffer()],
-      ];
-      for (const [format, made] of copies) {
-        const target = path.join(dir, `${file}-${size}.${format}`);
-        await writeFile(`${target}.part`, await made);
-        await rename(`${target}.part`, target);
-        written.push(target);
-      }
-    }
-  } catch (error) {
-    await Promise.all(
-      written.flatMap((target) => [rm(target, { force: true }), rm(`${target}.part`, { force: true })]),
-    );
-    throw error;
-  }
-
   // The average colour, shown while the photograph loads.
   const { channels } = await source().resize(64).stats();
   const colour = `#${channels
     .slice(0, 3)
     .map((channel) => hex(channel.mean))
     .join("")}`;
+
+  const widths = WIDTHS.filter((size) => size <= widest);
+  // A new name for every photograph put up, so no browser or cache can show an old one under it.
+  const file = `${name}-${randomBytes(5).toString("hex")}`;
+  const dir = photoFolder();
+  await mkdir(dir, { recursive: true });
+
+  // One copy at a time. Where the image library runs as WebAssembly, copies
+  // made side by side ran it out of memory.
+  const started: string[] = [];
+  try {
+    for (const size of widths) {
+      for (const format of ["avif", "webp", "jpg"] as const) {
+        const target = path.join(dir, `${file}-${size}.${format}`);
+        started.push(target);
+        const sized = source().resize({ width: size });
+        const copy = await (
+          format === "avif"
+            ? // Phones draw the 800-wide copy at over twice the density of an ordinary
+              // screen, where saving it harder cannot be seen.
+              sized.avif({ quality: size === 800 ? 42 : 50, effort: 0 })
+            : format === "webp"
+              ? sized.webp({ quality: 72, effort: 4 })
+              : sized.jpeg({ quality: 74, mozjpeg: true })
+        ).toBuffer();
+        await writeFile(`${target}.part`, copy);
+        await rename(`${target}.part`, target);
+      }
+    }
+  } catch (error) {
+    await Promise.all(
+      started.flatMap((target) => [rm(target, { force: true }), rm(`${target}.part`, { force: true })]),
+    );
+    throw error;
+  }
 
   return { file, width, height, widths, colour };
 }

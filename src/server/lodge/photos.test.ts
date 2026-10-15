@@ -1,9 +1,9 @@
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import sharp from "sharp";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fieldsOf, setupAction, SetupError, type SetupActionName } from "@/server/desk/setup";
 import { db, schema } from "@/server/db";
@@ -12,6 +12,7 @@ import { freshLodge } from "@/testing/lodge";
 
 import { forgetCatalogue, loadCatalogue, roomTypeBySlug } from "./catalogue";
 import { readPhotoFile } from "./photo-files";
+import { preparePhotoApart } from "./photo-preparing";
 import { preparePhoto } from "./photos";
 
 let folder: string;
@@ -165,6 +166,35 @@ describe("checking a photograph before it goes up", () => {
     expect(await readPhotoFile("../env")).toBeNull();
     expect(await readPhotoFile(`..%2F${prepared.file}-480.avif`)).toBeNull();
     expect(await readPhotoFile(`${prepared.file}-480.png`)).toBeNull();
+  });
+});
+
+describe("preparing a photograph in a process of its own", () => {
+  // The tool as the server runs it, here from its source.
+  const tool = [process.execPath, "--import", "tsx", "src/tools/prepare-photo.ts"];
+
+  it("brings back the copies, or the refusal in words", async () => {
+    const made = await preparePhotoApart(await photograph(1600, 1200), "forest-cottage-inside", tool);
+    expect(made).toMatchObject({ width: 1600, height: 1200, widths: [480, 800, 1200, 1600] });
+    expect(await saved()).toHaveLength(12);
+
+    await expect(preparePhotoApart(await photograph(800, 600), "a", tool)).rejects.toThrow("at least 1,200 wide");
+    expect(await saved()).toHaveLength(12);
+  }, 60_000);
+
+  it("says so plainly, and leaves no half-made copies, when the work stops without an answer", async () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    const dir = path.join(folder, "photos");
+    await mkdir(dir, { recursive: true });
+    // As if the tool had been stopped part way through the third copy.
+    for (const left of ["a-0123456789-480.avif", "a-0123456789-480.webp", "a-0123456789-480.jpg.part"]) {
+      await writeFile(path.join(dir, left), "x");
+    }
+    await expect(
+      preparePhotoApart(await photograph(1600, 1200), "a", [process.execPath, "-e", "process.exit(3)"]),
+    ).rejects.toThrow("That photograph could not be prepared. Save a smaller copy of it and try again.");
+    expect(await saved()).toEqual([]);
+    quiet.mockRestore();
   });
 });
 

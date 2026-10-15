@@ -1,7 +1,8 @@
 // Builds the command-line tools that run on the server beside the site:
 // the migrator, the seeder, the release check, the background jobs, the tool
 // that adds the first member of staff, the one that rewrites a training
-// lodge's books and the one that sends a trouble report by hand.
+// lodge's books, the one that sends a trouble report by hand and the one
+// that prepares a photograph put up from the back office.
 // Each becomes one self-contained file in dist/tools, so the server needs
 // nothing installed to run them.
 
@@ -18,6 +19,7 @@ await build({
     staff: "src/tools/staff.ts",
     training: "src/tools/training.ts",
     alert: "src/tools/alert.ts",
+    "prepare-photo": "src/tools/prepare-photo.ts",
   },
   outdir: "dist/tools",
   outExtension: { ".js": ".mjs" },

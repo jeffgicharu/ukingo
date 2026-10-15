@@ -5,6 +5,9 @@
 //
 //   node check-release.mjs --base http://127.0.0.1:8201 --release <commit>
 
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
 type Failure = { path: string; reason: string };
 
 function option(name: string): string | undefined {
@@ -229,18 +232,29 @@ async function policyHolds(path: string): Promise<void> {
   }
 }
 
-/** The image library loads on this server and can write every format the site serves. */
+/**
+ * Photographs put up from the back office can be prepared on this server: the
+ * tool beside this one loads the image library, writes every format the site
+ * serves into the folder kept for them, and removes what it wrote.
+ */
 async function photographsCanBePrepared(): Promise<void> {
   checked++;
+  const tool = fileURLToPath(new URL("./prepare-photo.mjs", import.meta.url));
+  const run = spawnSync(process.execPath, ["--max-old-space-size=96", tool, "--check"], {
+    encoding: "utf8",
+    timeout: 90_000,
+  });
+  let answer: { ok?: boolean; message?: string; photo?: { widths?: number[] } } = {};
   try {
-    const { default: sharp } = await import("sharp");
-    const image = sharp({ create: { width: 16, height: 12, channels: 3, background: "#425058" } });
-    for (const format of ["avif", "webp", "jpeg"] as const) {
-      const made = await image.clone().toFormat(format).toBuffer();
-      if (made.byteLength === 0) throw new Error(`made an empty ${format}`);
-    }
-  } catch (error) {
-    failures.push({ path: "(photographs)", reason: `cannot be prepared on this server: ${String(error)}` });
+    answer = JSON.parse(run.stdout.trim().split("\n").pop() ?? "");
+  } catch {
+    // Said nothing readable; reported below.
+  }
+  if (!answer.ok || answer.photo?.widths?.length !== 4) {
+    const why =
+      answer.message ??
+      (run.stderr.trim().split("\n").slice(0, 3).join(" ") || `ended with ${run.signal ?? run.status}`);
+    failures.push({ path: "(photographs)", reason: `cannot be prepared on this server: ${why}` });
   }
 }
 

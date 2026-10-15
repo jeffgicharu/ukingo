@@ -21,6 +21,7 @@
     "jobs": "tsx --env-file-if-exists=.env.local src/jobs/main.ts"
   },
   "dependencies": {
+    "@img/sharp-wasm32": "0.35.5",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.0",
