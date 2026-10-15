@@ -1,11 +1,12 @@
 // Telling the people who run the site that something is wrong.
 //
 // One fault can happen hundreds of times in a minute. The same trouble is
-// reported at most once every fifteen minutes, with a count of how often it
-// happened in between.
+// reported at most once every fifteen minutes. The repeats in between are
+// counted, and the next report of that trouble gives the count.
 
 import { sql } from "drizzle-orm";
 
+import { formatMoment, plural } from "@/lib/format";
 import { clock } from "@/server/clock";
 import { db } from "@/server/db";
 import { env } from "@/server/env";
@@ -34,17 +35,31 @@ export async function alert(
     const quietSince = new Date(now.getTime() - QUIET_MS);
 
     // Takes the right to send, or counts the repeat. One statement, so two
-    // processes reporting the same fault at once cannot both send.
-    const claimed = await db().execute<{ times: number; sending: boolean }>(sql`
+    // processes reporting the same fault at once cannot both send. `times`
+    // counts the report and the repeats held back after it.
+    const claimed = await db().execute<{
+      sending: boolean;
+      before: number | null;
+      before_at: Date | string | null;
+    }>(sql`
+      WITH earlier AS (SELECT times, last_sent_at FROM alerts WHERE key = ${key.slice(0, 200)})
       INSERT INTO alerts (key, last_sent_at, times) VALUES (${key.slice(0, 200)}, ${now}, 1)
       ON CONFLICT (key) DO UPDATE SET
         times = CASE WHEN alerts.last_sent_at <= ${quietSince} THEN 1 ELSE alerts.times + 1 END,
         last_sent_at = CASE WHEN alerts.last_sent_at <= ${quietSince} THEN ${now} ELSE alerts.last_sent_at END
-      RETURNING times, (last_sent_at = ${now}) AS sending
+      RETURNING (last_sent_at = ${now}) AS sending,
+        (SELECT times FROM earlier) AS before,
+        (SELECT last_sent_at FROM earlier) AS before_at
     `);
-    if (!claimed.rows[0]?.sending) return "quiet";
+    const row = claimed.rows[0];
+    if (!row?.sending) return "quiet";
 
-    const text = `${subject}\n\n${detail}\n\nRelease ${env.release}. The same trouble will not be reported again for 15 minutes.`;
+    const held = (row.before ?? 1) - 1;
+    const since =
+      held > 0 && row.before_at
+        ? `\n\nIt also happened ${plural(held, "more time")} after the report of ${formatMoment(new Date(row.before_at))}. Those were not reported one by one.`
+        : "";
+    const text = `${subject}\n\n${detail}${since}\n\nRelease ${env.release}. The same trouble will not be reported again for 15 minutes.`;
     const result = await sendEmail({
       to,
       subject: `[Ukingo] ${subject}`.slice(0, 200),

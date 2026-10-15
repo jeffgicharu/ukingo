@@ -48,7 +48,18 @@ describe("reporting trouble", () => {
 
     expect(sent).toHaveLength(2);
     expect(sent[0]).toMatchObject({ to: ["owner@lodge.example"], subject: "[Ukingo] A job failed" });
+    expect(sent[0].text).not.toContain("more time");
     expect(sent[1].text).toContain("It threw again.");
+    // The two repeats held back are counted in the next report.
+    expect(sent[1].text).toContain("It also happened 2 more times after the report of Mon 12 Oct 2026, 9 am.");
+  });
+
+  it("counts nothing held back when the trouble comes back after a quiet spell", async () => {
+    clock.pin(monday);
+    await alert("page", "A page failed", "It threw.");
+    clock.pin(later(40));
+    expect(await alert("page", "A page failed", "It threw.")).toBe("sent");
+    expect(sent[1].text).not.toContain("more time");
   });
 
   it("does not let one kind of trouble quieten another", async () => {
