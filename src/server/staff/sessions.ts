@@ -33,6 +33,36 @@ export function sessionCookie(value = ""): string {
     .join("; ");
 }
 
+/**
+ * After a wrong password, the sign-in page shows the email that was typed, so
+ * only the password needs typing again. It is kept for ten minutes, for that
+ * one page, and never in the address, where it would end up in logs.
+ */
+const TYPED_COOKIE = "desk_email";
+
+export function typedEmailCookie(email = ""): string {
+  return [
+    `${TYPED_COOKIE}=${encodeURIComponent(email.trim().slice(0, 200))}`,
+    "Path=/desk/sign-in",
+    `Max-Age=${email ? 600 : 0}`,
+    "HttpOnly",
+    "SameSite=Lax",
+    cookieOptions.secure ? "Secure" : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
+}
+
+/** The email typed before a wrong password, or "". */
+export async function typedEmail(): Promise<string> {
+  const value = (await cookies()).get(TYPED_COOKIE)?.value ?? "";
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return "";
+  }
+}
+
 /** The member of staff using this page, or null. */
 export async function currentStaff(): Promise<Staff | null> {
   const jar = await cookies();

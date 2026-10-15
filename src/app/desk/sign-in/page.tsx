@@ -4,7 +4,7 @@ import { connection } from "next/server";
 
 import { Door } from "@/components/desk/door";
 import { readFlash } from "@/server/flash";
-import { currentStaff } from "@/server/staff/sessions";
+import { currentStaff, typedEmail } from "@/server/staff/sessions";
 
 export const metadata: Metadata = {
   title: "Sign in to the front desk",
@@ -16,17 +16,35 @@ export default async function SignInPage({ searchParams }: PageProps<"/desk/sign
   if (await currentStaff()) redirect("/desk");
 
   const query = await searchParams;
+  const problem = readFlash(query.oops);
+  // Only after a wrong try: a plain visit starts with an empty form.
+  const email = problem ? await typedEmail() : "";
 
   return (
-    <Door title="Sign in" problem={readFlash(query.oops)} note={readFlash(query.note)}>
+    <Door title="Sign in" problem={problem} note={readFlash(query.note)}>
       <form action="/desk/sign-in/send" method="post" className="mt-5 space-y-4">
         <label className="block">
           <span className="field-label">Email</span>
-          <input name="email" type="email" required autoComplete="username" autoFocus className="field" />
+          <input
+            name="email"
+            type="email"
+            required
+            autoComplete="username"
+            autoFocus={!email}
+            defaultValue={email}
+            className="field"
+          />
         </label>
         <label className="block">
           <span className="field-label">Password</span>
-          <input name="password" type="password" required autoComplete="current-password" className="field" />
+          <input
+            name="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            autoFocus={Boolean(email)}
+            className="field"
+          />
         </label>
         <button type="submit" className="button button-night w-full">
           Sign in
