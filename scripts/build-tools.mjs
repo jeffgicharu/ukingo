@@ -28,8 +28,10 @@ await build({
   sourcemap: false,
   legalComments: "none",
   logLevel: "info",
-  // pg tries an optional native driver that is not used here.
-  external: ["pg-native"],
+  // pg tries an optional native driver that is not used here. The image
+  // library is native too: it is loaded from the site's own packages, so the
+  // release check proves the site can load it.
+  external: ["pg-native", "sharp"],
   define: {
     "process.env.RELEASE": JSON.stringify(release),
   },

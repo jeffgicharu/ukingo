@@ -172,14 +172,23 @@ async function main(): Promise<void> {
   await file("/icon.svg", /svg/);
   await file("/share.jpg", /image\/jpeg/);
 
-  // Every photograph the home page offers, at every size and in every format, must be there.
+  // Every photograph the home page offers, at every size and in every format, must be there:
+  // the ones the site was built with, and any staff have put up.
   const photographs = [
-    ...new Set([...home.matchAll(/\/photos\/[\w-]+\.(?:avif|webp|jpg)\?v=\w+/g)].map((match) => match[0])),
+    ...new Set(
+      [...home.matchAll(/\/(?:photos\/[\w-]+\.(?:avif|webp|jpg)\?v=\w+|uploads\/[\w-]+\.(?:avif|webp|jpg))/g)].map(
+        (match) => match[0],
+      ),
+    ),
   ];
   if (photographs.length === 0) failures.push({ path: "/", reason: "shows no photographs" });
   for (const photograph of photographs) {
     await file(photograph, /image\/(avif|webp|jpeg)/);
   }
+
+  await policyHolds("/");
+  await policyHolds("/rooms/forest-cottage");
+  await photographsCanBePrepared();
 
   // The stylesheet and scripts the home page asks for must be part of the release.
   const assets = [
@@ -192,6 +201,46 @@ async function main(): Promise<void> {
   }
   for (const asset of assets.slice(0, 8)) {
     await file(asset, /css|javascript|font|woff/);
+  }
+}
+
+/**
+ * The page says what may run on it, and every script of its own carries the
+ * number that lets it run. A page whose scripts the browser would refuse
+ * looks fine to a check that does not run them, and is dead to a visitor.
+ */
+async function policyHolds(path: string): Promise<void> {
+  checked++;
+  const response = await get(path);
+  if (!response) return;
+  const policy = response.headers.get("content-security-policy") ?? "";
+  const nonce = /'nonce-([^']+)'/.exec(policy)?.[1];
+  if (!nonce) {
+    failures.push({ path, reason: "sends no Content-Security-Policy with a nonce" });
+    return;
+  }
+  const html = await response.text();
+  const scripts = [...html.matchAll(/<script\b([^>]*)>/g)].map((match) => match[1]);
+  // Structured data for search engines is never run, so it needs no number.
+  const run = scripts.filter((attributes) => !/type="application\/ld\+json"/.test(attributes));
+  const without = run.filter((attributes) => !attributes.includes(`nonce="${nonce}"`));
+  if (run.length === 0 || without.length) {
+    failures.push({ path, reason: `${without.length} of ${run.length} scripts would be refused by the browser` });
+  }
+}
+
+/** The image library loads on this server and can write every format the site serves. */
+async function photographsCanBePrepared(): Promise<void> {
+  checked++;
+  try {
+    const { default: sharp } = await import("sharp");
+    const image = sharp({ create: { width: 16, height: 12, channels: 3, background: "#425058" } });
+    for (const format of ["avif", "webp", "jpeg"] as const) {
+      const made = await image.clone().toFormat(format).toBuffer();
+      if (made.byteLength === 0) throw new Error(`made an empty ${format}`);
+    }
+  } catch (error) {
+    failures.push({ path: "(photographs)", reason: `cannot be prepared on this server: ${String(error)}` });
   }
 }
 
